@@ -3142,6 +3142,18 @@ final: prev:
     meta.homepage = "https://github.com/tami5/lispdocs.nvim/";
   };
 
+  litee-nvim = buildVimPluginFrom2Nix {
+    pname = "litee.nvim";
+    version = "2021-12-29";
+    src = fetchFromGitHub {
+      owner = "ldelossa";
+      repo = "litee.nvim";
+      rev = "1628d73ed8344d7f8847b7960785bf3d9ded02f1";
+      sha256 = "04jal6pzs0xb6c9k7phs0hi42b3njka7c93l81dirrvhj24gmaaf";
+    };
+    meta.homepage = "https://github.com/ldelossa/litee.nvim/";
+  };
+
   lsp-colors-nvim = buildVimPluginFrom2Nix {
     pname = "lsp-colors.nvim";
     version = "2021-10-22";
