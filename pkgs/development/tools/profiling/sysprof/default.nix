@@ -1,31 +1,35 @@
 { stdenv
+, lib
 , desktop-file-utils
 , fetchurl
 , gettext
 , glib
 , gtk3
+, json-glib
 , itstool
 , libdazzle
+, libunwind
 , libxml2
-, meson, ninja
+, meson
+, ninja
 , pango
-, pkgconfig
+, pkg-config
 , polkit
 , shared-mime-info
 , systemd
 , wrapGAppsHook
-, gnome3
+, gnome
 }:
 
 stdenv.mkDerivation rec {
   pname = "sysprof";
-  version = "3.36.0";
+  version = "3.44.0";
 
   outputs = [ "out" "lib" "dev" ];
 
   src = fetchurl {
-    url = "mirror://gnome/sources/${pname}/${stdenv.lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
-    sha256 = "hnDbTaz3shnTDFdcRlsXyO1nJNut40fyzelUi/8DkQg=";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "q12fW3GXOzCI1Yob/fHcI8OaAvX85OXpxz4DSxeLAFs=";
   };
 
   nativeBuildInputs = [
@@ -35,24 +39,35 @@ stdenv.mkDerivation rec {
     libxml2
     meson
     ninja
-    pkgconfig
+    pkg-config
     shared-mime-info
     wrapGAppsHook
-    gnome3.adwaita-icon-theme
+    gnome.adwaita-icon-theme
   ];
-  buildInputs = [ glib gtk3 pango polkit systemd.dev systemd.lib libdazzle ];
+
+  buildInputs = [
+    glib
+    gtk3
+    json-glib
+    pango
+    polkit
+    systemd
+    libdazzle
+    libunwind
+  ];
 
   mesonFlags = [
     "-Dsystemdunitdir=lib/systemd/system"
   ];
 
   passthru = {
-    updateScript = gnome3.updateScript {
+    updateScript = gnome.updateScript {
       packageName = pname;
+      versionPolicy = "odd-unstable";
     };
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "System-wide profiler for Linux";
     homepage = "https://wiki.gnome.org/Apps/Sysprof";
     longDescription = ''
@@ -64,6 +79,6 @@ stdenv.mkDerivation rec {
     '';
     license = licenses.gpl2Plus;
     maintainers = teams.gnome.members;
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

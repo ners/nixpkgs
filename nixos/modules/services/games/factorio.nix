@@ -35,9 +35,10 @@ let
     auto_pause = true;
     only_admins_can_pause_the_game = true;
     autosave_only_on_server = true;
-    admins = [];
+    non_blocking_saving = cfg.nonBlockingSaving;
   } // cfg.extraSettings;
   serverSettingsFile = pkgs.writeText "server-settings.json" (builtins.toJSON (filterAttrsRecursive (n: v: v != null) serverSettings));
+  serverAdminsFile = pkgs.writeText "server-adminlist.json" (builtins.toJSON cfg.admins);
   modDir = pkgs.factorio-utils.mkModDirDrv cfg.mods;
 in
 {
@@ -49,8 +50,31 @@ in
         default = 34197;
         description = ''
           The port to which the service should bind.
+        '';
+      };
 
-          This option will also open up the UDP port in the firewall configuration.
+      bind = mkOption {
+        type = types.str;
+        default = "0.0.0.0";
+        description = ''
+          The address to which the service should bind.
+        '';
+      };
+
+      admins = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        example = [ "username" ];
+        description = ''
+          List of player names which will be admin.
+        '';
+      };
+
+      openFirewall = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Whether to automatically open the specified UDP port in the firewall.
         '';
       };
       saveName = mkOption {
@@ -59,8 +83,20 @@ in
         description = ''
           The name of the savegame that will be used by the server.
 
-          When not present in ${stateDir}/saves, a new map with default
-          settings will be generated before starting the service.
+          When not present in /var/lib/''${config.services.factorio.stateDirName}/saves,
+          a new map with default settings will be generated before starting the service.
+        '';
+      };
+      loadLatestSave = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Load the latest savegame on startup. This overrides saveName, in that the latest
+          save will always be used even if a saved game of the given name exists. It still
+          controls the 'canonical' name of the savegame.
+
+          Set this to true to have the server automatically reload a recent autosave after
+          a crash or desync.
         '';
       };
       # TODO Add more individual settings as nixos-options?
@@ -70,7 +106,7 @@ in
       configFile = mkOption {
         type = types.path;
         default = configFile;
-        defaultText = "configFile";
+        defaultText = literalExpression "configFile";
         description = ''
           The server's configuration file.
 
@@ -146,8 +182,8 @@ in
       package = mkOption {
         type = types.package;
         default = pkgs.factorio-headless;
-        defaultText = "pkgs.factorio-headless";
-        example = "pkgs.factorio-headless-experimental";
+        defaultText = literalExpression "pkgs.factorio-headless";
+        example = literalExpression "pkgs.factorio-headless-experimental";
         description = ''
           Factorio version to use. This defaults to the stable channel.
         '';
@@ -188,6 +224,15 @@ in
           Autosave interval in minutes.
         '';
       };
+      nonBlockingSaving = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Highly experimental feature, enable only at your own risk of losing your saves.
+          On UNIX systems, server will fork itself to create an autosave.
+          Autosaving on connected Windows clients will be disabled regardless of autosave_only_on_server option.
+        '';
+      };
     };
   };
 
@@ -216,9 +261,12 @@ in
           "${cfg.package}/bin/factorio"
           "--config=${cfg.configFile}"
           "--port=${toString cfg.port}"
-          "--start-server=${mkSavePath cfg.saveName}"
+          "--bind=${cfg.bind}"
+          (optionalString (!cfg.loadLatestSave) "--start-server=${mkSavePath cfg.saveName}")
           "--server-settings=${serverSettingsFile}"
+          (optionalString cfg.loadLatestSave "--start-server-load-latest")
           (optionalString (cfg.mods != []) "--mod-directory=${modDir}")
+          (optionalString (cfg.admins != []) "--server-adminlist=${serverAdminsFile}")
         ];
 
         # Sandboxing
@@ -237,6 +285,6 @@ in
       };
     };
 
-    networking.firewall.allowedUDPPorts = [ cfg.port ];
+    networking.firewall.allowedUDPPorts = if cfg.openFirewall then [ cfg.port ] else [];
   };
 }

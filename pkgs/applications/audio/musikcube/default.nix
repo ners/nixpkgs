@@ -1,52 +1,78 @@
 { cmake
 , pkg-config
-, alsaLib
 , boost
 , curl
 , fetchFromGitHub
+, fetchpatch
 , ffmpeg
+, gnutls
 , lame
 , libev
 , libmicrohttpd
 , ncurses
-, pulseaudio
+, lib
 , stdenv
 , taglib
-, systemdSupport ? stdenv.isLinux, systemd
+# Linux Dependencies
+, alsa-lib
+, pulseaudio
+, systemdSupport ? stdenv.isLinux
+, systemd
+# Darwin Dependencies
+, Cocoa
+, SystemConfiguration
 }:
 
 stdenv.mkDerivation rec {
   pname = "musikcube";
-  version = "0.90.1";
+  version = "0.97.0";
 
   src = fetchFromGitHub {
     owner = "clangen";
     repo = pname;
     rev = version;
-    sha256 = "1ff2cgbllrl2pl5zfbf0cd9qbf6hqpwr395sa1k245ar4f1rfwpg";
+    sha256 = "sha256-W9Ng1kqai5qhaDs5KWg/1sOTIAalBXLng1MG8sl/ZOg=";
   };
 
-  # https://github.com/clangen/musikcube/issues/339
-  patches = [ ./dont-strip.patch ];
+  patches = [
+    # Fix pending upstream inclusion for ncurses-6.3 support:
+    #  https://github.com/clangen/musikcube/pull/474
+    (fetchpatch {
+      name = "ncurses-6.3.patch";
+      url = "https://github.com/clangen/musikcube/commit/1240720e27232fdb199a4da93ca6705864442026.patch";
+      sha256 = "0bhjgwnj6d24wb1m9xz1vi1k9xk27arba1absjbcimggn54pinid";
+    })
+    ./0001-apple-cmake.patch
+  ];
 
   nativeBuildInputs = [
     cmake
     pkg-config
   ];
+
   buildInputs = [
-    alsaLib
     boost
     curl
     ffmpeg
+    gnutls
     lame
     libev
     libmicrohttpd
     ncurses
-    pulseaudio
     taglib
-  ] ++ stdenv.lib.optional systemdSupport systemd;
+  ] ++ lib.optional systemdSupport [
+    systemd
+  ] ++ lib.optional stdenv.isLinux [
+    alsa-lib pulseaudio
+  ] ++ lib.optional stdenv.isDarwin [
+    Cocoa SystemConfiguration
+  ];
 
-  meta = with stdenv.lib; {
+  cmakeFlags = [
+    "-DDISABLE_STRIP=true"
+  ];
+
+  meta = with lib; {
     description = "A fully functional terminal-based music player, library, and streaming audio server";
     homepage = "https://musikcube.com/";
     maintainers = [ maintainers.aanderse ];

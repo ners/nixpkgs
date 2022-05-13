@@ -1,15 +1,15 @@
-{ stdenv, fetchFromGitHub, cmake, gtest, c-ares, curl, libev }:
+{ lib, stdenv, fetchFromGitHub, cmake, gtest, c-ares, curl, libev }:
 
 stdenv.mkDerivation rec {
   pname = "https-dns-proxy";
   # there are no stable releases (yet?)
-  version = "unstable-20200419";
+  version = "unstable-2021-03-29";
 
   src = fetchFromGitHub {
     owner = "aarond10";
     repo = "https_dns_proxy";
-    rev = "79fc7b085e3b1ad64c8332f7115dfe2bf5f1f3e4";
-    sha256 = "1cdfswfjby4alp6gy7yyjm76kfyclh5ax0zadnqs2pyigg9plh0b";
+    rev = "bbd9ef272dcda3ead515871f594768af13192af7";
+    sha256 = "sha256-r+IpDklI3vITK8ZlZvIFm3JdDe2r8DK2ND3n1a/ThrM=";
   };
 
   nativeBuildInputs = [ cmake gtest ];
@@ -25,7 +25,7 @@ stdenv.mkDerivation rec {
   # for when that happens despite there being none as of right now
   doCheck = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "DNS to DNS over HTTPS (DoH) proxy";
     license = licenses.mit;
     maintainers = with maintainers; [ peterhoeg ];

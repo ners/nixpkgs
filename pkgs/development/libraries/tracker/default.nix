@@ -1,90 +1,78 @@
 { stdenv
+, lib
 , fetchurl
 , gettext
 , meson
 , ninja
-, pkgconfig
+, pkg-config
+, asciidoc
 , gobject-introspection
 , python3
-, gtk-doc
-, docbook_xsl
-, docbook_xml_dtd_412
-, docbook_xml_dtd_43
+, docbook-xsl-nons
 , docbook_xml_dtd_45
 , libxml2
 , glib
-, wrapGAppsHook
+, wrapGAppsNoGuiHook
 , vala
 , sqlite
 , libxslt
 , libstemmer
-, gnome3
+, gnome
 , icu
 , libuuid
-, networkmanager
 , libsoup
+, libsoup_3
 , json-glib
 , systemd
 , dbus
-, substituteAll
 }:
 
 stdenv.mkDerivation rec {
   pname = "tracker";
-  version = "2.3.4";
+  version = "3.3.0";
 
   outputs = [ "out" "dev" "devdoc" ];
 
   src = fetchurl {
-    url = "mirror://gnome/sources/${pname}/${stdenv.lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
-    sha256 = "V3lSJEq5d8eLC4ji9jxBl+q6FuTWa/9pK39YmT4GUW0=";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "Bwb5b+f5XfQqzsgSwd57RZOg1kgyHKg1BqnXHiJBe9o=";
   };
-
-  patches = [
-    (substituteAll {
-      src = ./fix-paths.patch;
-      gdbus = "${glib.bin}/bin/gdbus";
-    })
-  ];
 
   nativeBuildInputs = [
     meson
     ninja
     vala
-    pkgconfig
+    pkg-config
+    asciidoc
     gettext
     libxslt
-    wrapGAppsHook
+    wrapGAppsNoGuiHook
     gobject-introspection
-    gtk-doc
-    docbook_xsl
-    docbook_xml_dtd_412
-    docbook_xml_dtd_43
+    docbook-xsl-nons
     docbook_xml_dtd_45
     python3 # for data-generators
     systemd # used for checks to install systemd user service
-    dbus # used for checks and pkgconfig to install dbus service/s
-  ];
+    dbus # used for checks and pkg-config to install dbus service/s
+  ] ++ checkInputs; # gi is in the main meson.build and checked regardless of
+                    # whether tests are enabled
 
   buildInputs = [
     glib
     libxml2
     sqlite
     icu
-    networkmanager
     libsoup
+    libsoup_3
     libuuid
     json-glib
     libstemmer
   ];
 
-  checkInputs = [
-    python3.pkgs.pygobject3
+  checkInputs = with python3.pkgs; [
+    pygobject3
   ];
 
   mesonFlags = [
-    # TODO: figure out wrapping unit tests, some of them fail on missing gsettings-desktop-schemas
-    # "-Dfunctional_tests=true"
     "-Ddocs=true"
   ];
 
@@ -95,6 +83,7 @@ stdenv.mkDerivation rec {
     patchShebangs utils/data-generators/cc/generate
     patchShebangs tests/functional-tests/test-runner.sh.in
     patchShebangs tests/functional-tests/*.py
+    patchShebangs examples/python/endpoint.py
   '';
 
   preCheck = ''
@@ -106,9 +95,19 @@ stdenv.mkDerivation rec {
     # though, so we need to replace the absolute path with a local one during build.
     # We are using a symlink that will be overridden during installation.
     mkdir -p $out/lib
-    ln -s $PWD/src/libtracker-sparql-backend/libtracker-sparql-2.0.so $out/lib/libtracker-sparql-2.0.so.0
-    ln -s $PWD/src/libtracker-miner/libtracker-miner-2.0.so $out/lib/libtracker-miner-2.0.so.0
-    ln -s $PWD/src/libtracker-data/libtracker-data.so $out/lib/libtracker-data.so
+    ln -s $PWD/src/libtracker-sparql/libtracker-sparql-3.0.so $out/lib/libtracker-sparql-3.0.so.0
+  '';
+
+  checkPhase = ''
+    runHook preCheck
+
+    dbus-run-session \
+      --config-file=${dbus.daemon}/share/dbus-1/session.conf \
+      meson test \
+        --timeout-multiplier 2 \
+        --print-errorlogs
+
+    runHook postCheck
   '';
 
   postCheck = ''
@@ -116,18 +115,13 @@ stdenv.mkDerivation rec {
     rm -r $out/lib
   '';
 
-  postInstall = ''
-    glib-compile-schemas "$out/share/glib-2.0/schemas"
-  '';
-
   passthru = {
-    updateScript = gnome3.updateScript {
+    updateScript = gnome.updateScript {
       packageName = pname;
-      versionPolicy = "none";
     };
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://wiki.gnome.org/Projects/Tracker";
     description = "Desktop-neutral user information store, search tool and indexer";
     maintainers = teams.gnome.members;

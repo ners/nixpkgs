@@ -4,7 +4,8 @@ with lib;
 
 let
   cfg = config.services.thermald;
-in {
+in
+{
   ###### interface
   options = {
     services.thermald = {
@@ -23,23 +24,32 @@ in {
         default = null;
         description = "the thermald manual configuration file.";
       };
+
+      package = mkOption {
+        type = types.package;
+        default = pkgs.thermald;
+        defaultText = literalExpression "pkgs.thermald";
+        description = "Which thermald package to use.";
+      };
     };
   };
 
   ###### implementation
   config = mkIf cfg.enable {
-    services.dbus.packages = [ pkgs.thermald ];
+    services.dbus.packages = [ cfg.package ];
 
     systemd.services.thermald = {
       description = "Thermal Daemon Service";
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
+        PrivateNetwork = true;
         ExecStart = ''
-          ${pkgs.thermald}/sbin/thermald \
+          ${cfg.package}/sbin/thermald \
             --no-daemon \
             ${optionalString cfg.debug "--loglevel=debug"} \
             ${optionalString (cfg.configFile != null) "--config-file ${cfg.configFile}"} \
-            --dbus-enable
+            --dbus-enable \
+            --adaptive
         '';
       };
     };

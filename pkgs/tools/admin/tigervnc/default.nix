@@ -1,44 +1,53 @@
-{ stdenv, fetchFromGitHub
+{ lib, stdenv, fetchFromGitHub, fetchpatch
 , xorg, xkeyboard_config, zlib
 , libjpeg_turbo, pixman, fltk
-, fontDirectories
 , cmake, gettext, libtool
 , libGLU
 , gnutls, pam, nettle
 , xterm, openssh, perl
-, makeWrapper}:
+, makeWrapper
+, nixosTests
+}:
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  version = "1.10.1";
+  version = "1.12.0";
   pname = "tigervnc";
 
   src = fetchFromGitHub {
     owner = "TigerVNC";
     repo = "tigervnc";
-    rev = "v1.10.1";
-    sha256 = "001n189d2f3psn7nxgl8188ml6f7jbk26cxn2835y3mnlk5lmhgr";
+    rev = "v${version}";
+    sha256 = "sha256-77X+AvHFWfYYIio3c+EYf11jg/1IbYhNUweRIDHMOZw=";
   };
 
-  inherit fontDirectories;
 
-  patches = [ ./u_xorg-server-1.20.7-ddxInputThreadInit.patch ];
+  patches = [
+    (fetchpatch {
+      url = "https://patch-diff.githubusercontent.com/raw/TigerVNC/tigervnc/pull/1383.patch";
+      sha256 = "sha256-r3QLtxVD0wIv2NWVN9r0LVxSlLurDHgkAZfkpIjmZyU=";
+      name = "Xvnc-support-Xorg-1.21-PR1383.patch";
+    })
+  ];
 
   postPatch = ''
-    sed -i -e '/^\$cmd \.= " -pn";/a$cmd .= " -xkbdir ${xkeyboard_config}/etc/X11/xkb";' unix/vncserver
+    sed -i -e '/^\$cmd \.= " -pn";/a$cmd .= " -xkbdir ${xkeyboard_config}/etc/X11/xkb";' unix/vncserver/vncserver.in
     fontPath=
-    for i in $fontDirectories; do
-      for j in $(find $i -name fonts.dir); do
-        addToSearchPathWithCustomDelimiter "," fontPath $(dirname $j)
-      done
-    done
-    sed -i -e '/^\$cmd \.= " -pn";/a$cmd .= " -fp '"$fontPath"'";' unix/vncserver
     substituteInPlace vncviewer/vncviewer.cxx \
        --replace '"/usr/bin/ssh' '"${openssh}/bin/ssh'
+
+    cp unix/xserver21.1.1.patch unix/xserver211.patch
+    source_top="$(pwd)"
   '';
 
   dontUseCmakeBuildDir = true;
+
+  cmakeFlags = [
+    "-DCMAKE_INSTALL_PREFIX=${placeholder "out"}"
+    "-DCMAKE_INSTALL_SBINDIR=${placeholder "out"}/bin"
+    "-DCMAKE_INSTALL_LIBEXECDIR=${placeholder "out"}/bin"
+  ];
 
   postBuild = ''
     export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE -Wno-error=int-to-pointer-cast -Wno-error=pointer-to-int-cast"
@@ -48,7 +57,7 @@ stdenv.mkDerivation rec {
     cp -R xorg*/* unix/xserver
     pushd unix/xserver
     version=$(echo ${xorg.xorgserver.name} | sed 's/.*-\([0-9]\+\).\([0-9]\+\).*/\1\2/g')
-    patch -p1 < ${src}/unix/xserver$version.patch
+    patch -p1 < "$source_top/unix/xserver$version.patch"
     autoreconf -vfi
     ./configure $configureFlags  --disable-devel-docs --disable-docs \
         --disable-xorg --disable-xnest --disable-xvfb --disable-dmx \
@@ -76,7 +85,7 @@ stdenv.mkDerivation rec {
     rm -f $out/lib/xorg/protocol.txt
 
     wrapProgram $out/bin/vncserver \
-      --prefix PATH : ${stdenv.lib.makeBinPath (with xorg; [ xterm twm xsetroot xauth ]) }
+      --prefix PATH : ${lib.makeBinPath (with xorg; [ xterm twm xsetroot xauth ]) }
   '';
 
   buildInputs = with xorg; [
@@ -93,14 +102,14 @@ stdenv.mkDerivation rec {
 
   propagatedBuildInputs = xorg.xorgserver.propagatedBuildInputs;
 
-  enableParallelBuilding = true;
+  passthru.tests.tigervnc = nixosTests.vnc.testTigerVNC;
 
   meta = {
     homepage = "https://tigervnc.org/";
-    license = stdenv.lib.licenses.gpl2Plus;
+    license = lib.licenses.gpl2Plus;
     description = "Fork of tightVNC, made in cooperation with VirtualGL";
-    maintainers = with stdenv.lib.maintainers; [viric];
-    platforms = with stdenv.lib.platforms; linux;
+    maintainers = with lib.maintainers; [viric];
+    platforms = with lib.platforms; linux;
     # Prevent a store collision.
     priority = 4;
   };

@@ -11,12 +11,12 @@ in
 
 stdenv.mkDerivation rec {
   pname = "minijail";
-  version = "14";
+  version = "17";
 
   src = fetchFromGitiles {
     url = "https://android.googlesource.com/platform/external/minijail";
     rev = "linux-v${version}";
-    sha256 = "00dq854n4zg3ca2b46f90k15n32zn2sgabi76mnq2w985k9v977n";
+    sha256 = "1j65h50wa39m6qvgnh1pf59fv9jdsdbc6a6c1na7y0rgljxhmdzv";
   };
 
   nativeBuildInputs =
@@ -49,6 +49,8 @@ stdenv.mkDerivation rec {
     cp -v minijail0 $out/bin
     cp -v constants.json $out/share/minijail
   '';
+
+  enableParallelBuilding = true;
 
   meta = with lib; {
     homepage = "https://android.googlesource.com/platform/external/minijail/";

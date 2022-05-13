@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub }:
+{ lib, stdenv, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
   version = "0.6.8";
@@ -14,6 +14,8 @@ stdenv.mkDerivation rec {
   # To enable lazy loading via. bash-completion we need a symlink to the script
   # from every command name.
   installPhase = ''
+    runHook preInstall
+
     commands=$(
       function complete() { shift 2; echo "$@"; }
       shopt -s extglob
@@ -24,13 +26,17 @@ stdenv.mkDerivation rec {
     for c in $commands; do
       ln -s _nix $c
     done
+
+    runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://github.com/hedning/nix-bash-completions";
     description = "Bash completions for Nix, NixOS, and NixOps";
     license = licenses.bsd3;
     platforms = platforms.all;
     maintainers = with maintainers; [ hedning ];
+    # Set a lower priority such that the newly provided completion from Nix 2.4 are preferred.
+    priority = 10;
   };
 }

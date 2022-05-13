@@ -1,15 +1,21 @@
-{ stdenv, fetchurl, gfortran, hepmc2, fastjet, lhapdf, rivet, sqlite }:
+{ lib, stdenv, fetchurl, autoconf, gfortran, hepmc2, fastjet, lhapdf, rivet, sqlite }:
 
 stdenv.mkDerivation rec {
   pname = "sherpa";
-  version = "2.2.9";
+  version = "2.2.12";
 
   src = fetchurl {
     url = "https://www.hepforge.org/archive/sherpa/SHERPA-MC-${version}.tar.gz";
-    sha256 = "1z7vws97k6zfzyqx0dkv2kq8d83dibi73i5jiqk5a22yplp6bnjh";
+    sha256 = "sha256-UpRkd1yoKLncllEQUm80DedDtgA8Hm+Kvi/BRVCu0AE=";
   };
 
-  buildInputs = [ gfortran sqlite lhapdf rivet ];
+  postPatch = lib.optionalString (stdenv.hostPlatform.libc == "glibc") ''
+    sed -ie '/sys\/sysctl.h/d' ATOOLS/Org/Run_Parameter.C
+  '';
+
+  nativeBuildInputs = [ autoconf gfortran ];
+
+  buildInputs = [ sqlite lhapdf rivet ];
 
   enableParallelBuilding = true;
 
@@ -19,9 +25,10 @@ stdenv.mkDerivation rec {
     "--enable-fastjet=${fastjet}"
     "--enable-lhapdf=${lhapdf}"
     "--enable-rivet=${rivet}"
+    "--enable-pythia"
   ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Simulation of High-Energy Reactions of PArticles in lepton-lepton, lepton-photon, photon-photon, lepton-hadron and hadron-hadron collisions";
     license = licenses.gpl2;
     homepage = "https://gitlab.com/sherpa-team/sherpa";

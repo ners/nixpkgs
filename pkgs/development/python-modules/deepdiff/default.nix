@@ -1,38 +1,51 @@
 { lib
 , buildPythonPackage
-, fetchPypi
-, mock
-, jsonpickle
+, fetchFromGitHub
+, click
 , ordered-set
+, clevercsv
+, jsonpickle
 , numpy
 , pytestCheckHook
+, pyyaml
 }:
 
 buildPythonPackage rec {
   pname = "deepdiff";
-  version = "4.0.9";
+  version = "5.7.0";
+  format = "setuptools";
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "5e2343398e90538edaa59c0c99207e996a3a834fdc878c666376f632a760c35a";
+  # pypi source does not contain all fixtures required for tests
+  src = fetchFromGitHub {
+    owner = "seperman";
+    repo = "deepdiff";
+    # 5.7.0 release not tagged https://github.com/seperman/deepdiff/issues/300
+    rev = "f2ffdb83b2993f4f0bb7e854620f0acd0bf6339e";
+    hash = "sha256-0UBx7sH2iMrLVl5FtHNTwoecLHi8GbInn75G3FSg4gk=";
   };
 
-  # # Extra packages (may not be necessary)
-  checkInputs = [
-    mock
-    numpy
-    pytestCheckHook
-  ];
-
-  disabledTests = [
-    # skipped tests require murmur module
-    "test_prep_str_murmur3_64bit"
-    "test_prep_str_murmur3_128bit"
-  ];
+  postPatch = ''
+    substituteInPlace requirements.txt \
+      --replace "ordered-set==4.0.2" "ordered-set"
+    substituteInPlace tests/test_command.py \
+      --replace '/tmp/' "$TMPDIR/"
+  '';
 
   propagatedBuildInputs = [
-    jsonpickle
+    click
     ordered-set
+  ];
+
+  pythonImportsCheck = [
+    "deepdiff"
+  ];
+
+  checkInputs = [
+    clevercsv
+    jsonpickle
+    numpy
+    pytestCheckHook
+    pyyaml
   ];
 
   meta = with lib; {

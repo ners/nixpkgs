@@ -4,24 +4,25 @@
 , rustPlatform
 , installShellFiles
 , perl
+, libiconv
 , Security
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "findomain";
-  version = "1.5.0";
+  version = "8.1.1";
 
   src = fetchFromGitHub {
     owner = "Edu4rdSHL";
     repo = pname;
     rev = version;
-    sha256 = "1w3parmk3836v5ghn3cgcxyk0alk05r5ljl3j1fpnly5xvl131rd";
+    sha256 = "sha256-ngT9ZtPsCzcmZbwpmzbEcSUTHPezzdyAB12qrm5Z6n0=";
   };
 
-  cargoSha256 = "1cs076cgkzjan6y78a3bhriv2q2s83hp5vzhkjwz4dqn83r6b8hx";
+  cargoSha256 = "sha256-nHNS1Uskggm5e1paWRSiL4HHcooDbYe0toMwR05OkDQ=";
 
   nativeBuildInputs = [ installShellFiles perl ];
-  buildInputs = lib.optional stdenv.isDarwin Security;
+  buildInputs = lib.optionals stdenv.isDarwin [ libiconv Security ];
 
   postInstall = ''
     installManPage ${pname}.1
@@ -30,8 +31,7 @@ rustPlatform.buildRustPackage rec {
   meta = with lib; {
     description = "The fastest and cross-platform subdomain enumerator";
     homepage = "https://github.com/Edu4rdSHL/findomain";
-    license = licenses.gpl3;
-    maintainers = with maintainers; [ filalex77 ];
-    platforms = platforms.all;
+    license = licenses.gpl3Plus;
+    maintainers = with maintainers; [ Br1ght0ne ];
   };
 }

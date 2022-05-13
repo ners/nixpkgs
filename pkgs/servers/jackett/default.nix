@@ -1,46 +1,49 @@
-{ lib, stdenv, fetchurl, makeWrapper, curl, icu60, openssl, zlib }:
+{ lib
+, stdenv
+, buildDotnetModule
+, fetchFromGitHub
+, dotnetCorePackages
+, openssl
+, mono
+}:
 
-stdenv.mkDerivation rec {
+buildDotnetModule rec {
   pname = "jackett";
-  version = "0.16.175";
+  version = "0.20.709";
 
-  src = {
-    x86_64-linux = fetchurl {
-      url = "https://github.com/Jackett/Jackett/releases/download/v${version}/Jackett.Binaries.LinuxAMDx64.tar.gz";
-      sha512 = "269n84qc8sfrmnidgrjywanbqr65mhkmk24dlqfi17pi0l27wi4fc4qmnjj683xwprz5hqjsmkqf963pbx4k3jaz0rp0jnizan91wij";
-    };
-    aarch64-linux = fetchurl {
-      url = "https://github.com/Jackett/Jackett/releases/download/v${version}/Jackett.Binaries.LinuxARM64.tar.gz";
-      sha512 = "0dmyhprd2vi2z9q5g79psqgsc3w0zdac4s6k20rngi8jxm5jgphzrzcic4rgdijyryap99my619k447w701a08vh9sfcfk0fjg9pgwb";
-    };
-  }."${stdenv.targetPlatform.system}" or (throw "Missing hash for host system: ${stdenv.targetPlatform.system}");
-
-  buildInputs = [ makeWrapper ];
-
-  installPhase = ''
-    mkdir -p $out/{bin,opt/${pname}-${version}}
-    cp -r * $out/opt/${pname}-${version}
-
-    makeWrapper "$out/opt/${pname}-${version}/jackett" $out/bin/Jackett \
-      --prefix LD_LIBRARY_PATH ':' "${curl.out}/lib:${icu60.out}/lib:${openssl.out}/lib:${zlib.out}/lib"
-  '';
-
-  preFixup = let
-    libPath = lib.makeLibraryPath [
-      stdenv.cc.cc.lib  # libstdc++.so.6
-    ];
-  in ''
-    patchelf \
-      --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
-      --set-rpath "${libPath}" \
-      $out/opt/${pname}-${version}/jackett
-  '';
-
-  meta = with stdenv.lib; {
-    description = "API Support for your favorite torrent trackers.";
-    homepage = "https://github.com/Jackett/Jackett/";
-    license = licenses.gpl2;
-    maintainers = with maintainers; [ edwtjo nyanloutre ];
-    platforms = [ "x86_64-linux" "aarch64-linux" ];
+  src = fetchFromGitHub {
+    owner = pname;
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "Gx1VHjs37XBcvw20pQNrA/meLuVmogdGIzroRXvTv5Q=";
   };
+
+  projectFile = "src/Jackett.Server/Jackett.Server.csproj";
+  nugetDeps = ./deps.nix;
+
+  dotnet-sdk = dotnetCorePackages.sdk_6_0;
+  dotnet-runtime = dotnetCorePackages.aspnetcore_6_0;
+
+  dotnetInstallFlags = [ "-p:TargetFramework=net6.0" ];
+
+  runtimeDeps = [ openssl ];
+
+  doCheck = !(stdenv.isDarwin && stdenv.isAarch64); # mono is not available on aarch64-darwin
+  checkInputs = [ mono ];
+  testProjectFile = "src/Jackett.Test/Jackett.Test.csproj";
+
+  postFixup = ''
+    # For compatibility
+    ln -s $out/bin/jackett $out/bin/Jackett || :
+    ln -s $out/bin/Jackett $out/bin/jackett || :
+  '';
+
+  meta = with lib; {
+    description = "API Support for your favorite torrent trackers";
+    homepage = "https://github.com/Jackett/Jackett/";
+    license = licenses.gpl2Only;
+    maintainers = with maintainers; [ edwtjo nyanloutre purcell ];
+    platforms = platforms.all;
+  };
+  passthru.updateScript = ./updater.sh;
 }

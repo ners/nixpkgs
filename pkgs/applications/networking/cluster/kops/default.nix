@@ -1,18 +1,18 @@
-{ stdenv, lib, buildGoPackage, fetchFromGitHub, go-bindata, installShellFiles }:
-
+{ lib, buildGoPackage, fetchFromGitHub, go-bindata, installShellFiles }:
 let
   goPackagePath = "k8s.io/kops";
 
-  generic = { version, sha256, ...}@attrs:
-    let attrs' = builtins.removeAttrs attrs ["version" "sha256"] ; in
-      buildGoPackage {
+  generic = { version, sha256, rev ? version, ... }@attrs:
+    let attrs' = builtins.removeAttrs attrs [ "version" "sha256" "rev" ]; in
+    buildGoPackage
+      {
         pname = "kops";
         inherit version;
 
         inherit goPackagePath;
 
         src = fetchFromGitHub {
-          rev = version;
+          rev = rev;
           owner = "kubernetes";
           repo = "kops";
           inherit sha256;
@@ -21,11 +21,10 @@ let
         nativeBuildInputs = [ go-bindata installShellFiles ];
         subPackages = [ "cmd/kops" ];
 
-        buildFlagsArray = ''
-          -ldflags=
-              -X k8s.io/kops.Version=${version}
-              -X k8s.io/kops.GitVersion=${version}
-        '';
+        ldflags = [
+          "-X k8s.io/kops.Version=${version}"
+          "-X k8s.io/kops.GitVersion=${version}"
+        ];
 
         preBuild = ''
           (cd go/src/k8s.io/kops
@@ -39,25 +38,35 @@ let
           done
         '';
 
-        meta = with stdenv.lib; {
+        meta = with lib; {
           description = "Easiest way to get a production Kubernetes up and running";
           homepage = "https://github.com/kubernetes/kops";
+          changelog = "https://github.com/kubernetes/kops/tree/master/docs/releases";
           license = licenses.asl20;
-          maintainers = with maintainers; [ offline zimbatm kampka ];
+          maintainers = with maintainers; [ offline zimbatm diegolelis yurrriq ];
           platforms = platforms.unix;
         };
       } // attrs';
-in rec {
+in
+rec {
 
   mkKops = generic;
 
-  kops_1_15 = mkKops {
-    version = "1.15.3";
-    sha256 = "0pzgrsl61nw8pm3s032lj020fw13x3fpzlj7lknsnd581f0gg4df";
+  kops_1_21 = mkKops rec {
+    version = "1.21.4";
+    sha256 = "sha256-f2xOVa3N/GH5IoI6H/QwDdKTeQoF/kEHX6lNytCZ9cs=";
+    rev = "v${version}";
   };
 
-  kops_1_16 = mkKops {
-    version = "1.16.2";
-    sha256 = "1vhkjhx1n3f6ggw5cy1avs3sbqb2da6khck9zqd4s7almjbpc2h2";
+  kops_1_22 = mkKops rec {
+    version = "1.22.4";
+    sha256 = "sha256-osU7yI77ZALGrAGuP8qAgv+ogDRn+BSVmcjPbi/WEKE=";
+    rev = "v${version}";
+  };
+
+  kops_1_23 = mkKops rec {
+    version = "1.23.1";
+    sha256 = "sha256-SiseHs5cMj8DR1f6z9PTbtF/h3Bn9riiLWW5KMYwVUg=";
+    rev = "v${version}";
   };
 }

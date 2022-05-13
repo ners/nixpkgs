@@ -1,26 +1,23 @@
-{ stdenv, buildGoPackage, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub }:
 
-buildGoPackage rec {
+buildGoModule rec {
   pname = "brook";
-  version = "20200201";
-
-  goPackagePath = "github.com/txthinking/brook";
+  version = "20220501";
 
   src = fetchFromGitHub {
     owner = "txthinking";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0fyw2q99gapnrg836x299sgagx94a5jpw4x3gnsf69fih7cqp9lm";
+    sha256 = "sha256-JAlSqwhWsF8PTAyn2W1BCDO50eSBq7ukwl0dzzmK1zU=";
   };
 
-  goDeps = ./deps.nix;
+  vendorSha256 = "sha256-ic5QYRVElEuH4D29PXgTzMHU0KjrxDqcdfg7Kd37/YU=";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://github.com/txthinking/brook";
     description = "A cross-platform Proxy/VPN software";
-    license = with licenses; [ gpl3 ];
-    platforms = platforms.linux;
+    license = with licenses; [ gpl3Only ];
+    platforms = platforms.unix;
     maintainers = with maintainers; [ xrelkd ];
   };
 }
-

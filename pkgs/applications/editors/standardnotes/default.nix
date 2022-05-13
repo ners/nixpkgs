@@ -1,23 +1,24 @@
-{ stdenv, appimageTools, autoPatchelfHook, desktop-file-utils
-  , fetchurl, runtimeShell }:
+{ lib, stdenv, appimageTools, autoPatchelfHook, desktop-file-utils
+, fetchurl, libsecret, gtk3, gsettings-desktop-schemas }:
 
 let
-  version = "3.3.3";
+  version = "3.11.1";
   pname = "standardnotes";
   name = "${pname}-${version}";
+  throwSystem = throw "Unsupported system: ${stdenv.hostPlatform.system}";
 
   plat = {
-    i386-linux = "-i386";
-    x86_64-linux = "";
-  }.${stdenv.hostPlatform.system};
+    i686-linux = "i386";
+    x86_64-linux = "x86_64";
+  }.${stdenv.hostPlatform.system} or throwSystem;
 
   sha256 = {
-    i386-linux = "2ccdf23588b09d645811e562d4fd7e02ac0e367bf2b34e373d8470d48544036d";
-    x86_64-linux = "6366d0a37cbf2cf51008a666e40bada763dd1539173de01e093bcbe4146a6bd8";
-  }.${stdenv.hostPlatform.system};
+    i686-linux = "3e83a7eef5c29877eeffefb832543b21627cf027ae6e7b4f662865b6b842649a";
+    x86_64-linux = "fd461e98248a2181afd2ef94a41a291d20f7ffb20abeaf0cfcf81a9f94e27868";
+  }.${stdenv.hostPlatform.system} or throwSystem;
 
   src = fetchurl {
-    url = "https://github.com/standardnotes/desktop/releases/download/v${version}/standard-notes-${version}${plat}.AppImage";
+    url = "https://github.com/standardnotes/desktop/releases/download/v${version}/standard-notes-${version}-linux-${plat}.AppImage";
     inherit sha256;
   };
 
@@ -30,6 +31,14 @@ let
 in appimageTools.wrapType2 rec {
   inherit name src;
 
+  profile = ''
+    export XDG_DATA_DIRS=${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}:${gtk3}/share/gsettings-schemas/${gtk3.name}:$XDG_DATA_DIRS
+  '';
+
+  extraPkgs = pkgs: with pkgs; [
+    libsecret
+  ];
+
   extraInstallCommands = ''
     # directory in /nix/store so readonly
     cp -r  ${appimageContents}/* $out
@@ -40,11 +49,12 @@ in appimageTools.wrapType2 rec {
     # fixup and install desktop file
     ${desktop-file-utils}/bin/desktop-file-install --dir $out/share/applications \
       --set-key Exec --set-value ${pname} standard-notes.desktop
+    mv usr/share/icons share
 
     rm usr/lib/* AppRun standard-notes.desktop .so*
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A simple and private notes app";
     longDescription = ''
       Standard Notes is a private notes app that features unmatched simplicity,
@@ -52,7 +62,7 @@ in appimageTools.wrapType2 rec {
     '';
     homepage = "https://standardnotes.org";
     license = licenses.agpl3;
-    maintainers = with maintainers; [ mgregoire ];
-    platforms = [ "i386-linux" "x86_64-linux" ];
+    maintainers = with maintainers; [ mgregoire chuangzhu ];
+    platforms = [ "i686-linux" "x86_64-linux" ];
   };
 }

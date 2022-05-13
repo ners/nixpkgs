@@ -1,16 +1,23 @@
-{ stdenv, lib, fetchFromGitHub, cmake, orcania, systemd, check, subunit
+{ stdenv
+, lib
+, fetchFromGitHub
+, cmake
+, orcania
+, systemd
+, check
+, subunit
 , withSystemd ? stdenv.isLinux
 }:
-assert withSystemd -> systemd != null;
+
 stdenv.mkDerivation rec {
   pname = "yder";
-  version = "1.4.10";
+  version = "1.4.15";
 
   src = fetchFromGitHub {
     owner = "babelouest";
     repo = pname;
     rev = "v${version}";
-    sha256 = "1m1aw4im1vvddkl7mknq0h0nj0x2zpql3r17lxhw4mmib05zbdgj";
+    sha256 = "sha256-hPAL1UngodNbQCCdKulaF5faI0JOjmWdz3q8oyPH7C4=";
   };
 
   patches = [
@@ -21,7 +28,8 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ cmake ];
 
-  buildInputs = [ orcania ] ++ lib.optional withSystemd systemd;
+  buildInputs = [ orcania ]
+    ++ lib.optional withSystemd systemd;
 
   checkInputs = [ check subunit ];
 

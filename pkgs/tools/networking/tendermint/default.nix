@@ -1,20 +1,28 @@
-{ stdenv, fetchFromGitHub, buildGoModule }:
+{ lib, fetchFromGitHub, buildGoModule }:
 
 buildGoModule rec {
   pname = "tendermint";
-  version = "0.32.11";
+  version = "0.35.2";
 
   src = fetchFromGitHub {
     owner = "tendermint";
     repo = pname;
     rev = "v${version}";
-    sha256 = "17p7khfiv5aflpl4imbqp8v7gignd6v6a7g80xlnzgix5ismh84l";
+    sha256 = "sha256-QCCDZ0zsAqV7tvlBeyTpN5iz/jBc50oBgrmUB/R5wCY=";
   };
 
-  vendorSha256 = "1vhd3s6yxfhirgipxcy0rh8sk55cdzirr8n8r31sijgyak92mq0l";
+  vendorSha256 = "sha256-h4sNfV8B+WGgfVPDmWVNek7fQo5qZ3+VGkx4VSw4QF8=";
 
-  meta = with stdenv.lib; {
-    description = "Byzantine-Fault Tolerant State Machines. Or Blockchain, for short.";
+  subPackages = [ "cmd/tendermint" ];
+
+  preBuild = ''
+    makeFlagsArray+=(
+      "-ldflags=-s -w -X github.com/tendermint/tendermint/version.GitCommit=${src.rev}"
+    )
+  '';
+
+  meta = with lib; {
+    description = "Byzantine-Fault Tolerant State Machines. Or Blockchain, for short";
     homepage = "https://tendermint.com/";
     license = licenses.asl20;
     maintainers = with maintainers; [ alexfmpe ];

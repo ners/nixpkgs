@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, fetchpatch, cmake, doxygen, qt4, qjson }:
+{ lib, stdenv, fetchFromGitHub, fetchpatch, cmake, doxygen, qt4, qjson }:
 
 stdenv.mkDerivation rec {
   pname = "libechonest";
@@ -10,6 +10,9 @@ stdenv.mkDerivation rec {
     rev = version;
     sha256 = "0xbavf9f355dl1d3qv59x4ryypqrdanh9xdvw2d0q66l008crdkq";
   };
+
+  # Fix build with GCC 11.
+  NIX_CFLAGS_COMPILE = [ "-std=c++14" ];
 
   patches = [
     (fetchpatch {
@@ -25,13 +28,12 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ cmake doxygen ];
   buildInputs = [ qt4 qjson ];
 
-  enableParallelBuilding = true;
   doCheck = false; # requires network access
 
   meta = {
     description = "A C++/Qt wrapper around the Echo Nest API";
     homepage = "https://projects.kde.org/projects/playground/libs/libechonest";
-    license = stdenv.lib.licenses.gpl2Plus;
-    platforms = stdenv.lib.platforms.unix;
+    license = lib.licenses.gpl2Plus;
+    platforms = lib.platforms.unix;
   };
 }

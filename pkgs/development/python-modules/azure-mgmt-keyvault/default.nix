@@ -1,28 +1,28 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, python
-, isPy3k
 , msrest
 , msrestazure
 , azure-common
 , azure-mgmt-nspkg
+, azure-mgmt-core
 }:
 
 buildPythonPackage rec {
   pname = "azure-mgmt-keyvault";
-  version = "2.2.0";
+  version = "9.3.0";
 
   src = fetchPypi {
     inherit pname version;
     extension = "zip";
-    sha256 = "1883e12eeb5819064dc52bf3a3ade05c791f4b66e4aeec948bda28df6ce2bce4";
+    sha256 = "54156422e618b686d52232a7989594b240bd18afd0fa381e12e4772ed4ab5ea8";
   };
 
   propagatedBuildInputs = [
     msrest
     msrestazure
     azure-common
+    azure-mgmt-core
     azure-mgmt-nspkg
   ];
 
@@ -35,6 +35,6 @@ buildPythonPackage rec {
     description = "This is the Microsoft Azure Key Vault Management Client Library";
     homepage = "https://github.com/Azure/azure-sdk-for-python";
     license = licenses.mit;
-    maintainers = with maintainers; [ jonringer mwilsoninsight ];
+    maintainers = with maintainers; [ jonringer maxwilson ];
   };
 }

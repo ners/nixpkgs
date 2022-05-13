@@ -1,5 +1,7 @@
-{ stdenv, fetchFromGitLab, fetchFromGitHub, buildGoPackage, ruby,
-  bundlerEnv, pkgconfig, libgit2 }:
+{ lib, fetchFromGitLab, fetchFromGitHub, buildGoModule, ruby
+, bundlerEnv, pkg-config
+# libgit2 + dependencies
+, libgit2_1_3_0, openssl, zlib, pcre, http-parser }:
 
 let
   rubyEnv = bundlerEnv rec {
@@ -7,71 +9,49 @@ let
     inherit ruby;
     copyGemFiles = true;
     gemdir = ./.;
-    gemset =
-      let x = import (gemdir + "/gemset.nix");
-      in x // {
-        # grpc expects the AR environment variable to contain `ar rpc`. See the
-        # discussion in nixpkgs #63056.
-        grpc = x.grpc // {
-          patches = [ ../fix-grpc-ar.patch ];
-          dontBuild = false;
-        };
-      };
   };
-  libgit2_0_27 = libgit2.overrideAttrs (oldAttrs: rec {
-    version = "0.27.8";
-    src = fetchFromGitHub {
-      owner = "libgit2";
-      repo = "libgit2";
-      rev = "v${version}";
-      sha256 = "0wzx8nkyy9m7mx6cks58chjd4289vjsw97mxm9w6f1ggqsfnmbr9";
-    };
-  });
-in buildGoPackage rec {
-  version = "12.8.10";
+
+  version = "14.10.2";
+  gitaly_package = "gitlab.com/gitlab-org/gitaly/v${lib.versions.major version}";
+in
+
+buildGoModule {
   pname = "gitaly";
+  inherit version;
 
   src = fetchFromGitLab {
     owner = "gitlab-org";
     repo = "gitaly";
     rev = "v${version}";
-    sha256 = "1vhnpyggh2ch93i75np11rjzvq8d6pwv2kzvwh7ak3fa02w9qdfs";
+    sha256 = "sha256-hLTzkW5GDq1AgTwe1pVj6Tiyd0JpJ76ATFu3Q+m9MVg=";
   };
 
-  # Fix a check which assumes that hook files are writeable by their
-  # owner.
-  patches = [ ./fix-executable-check.patch ];
-
-  goPackagePath = "gitlab.com/gitlab-org/gitaly";
+  vendorSha256 = "sha256-ZL61t+Ii2Ns3TmitiF93exinod54+RCqrbdpU67HeY0=";
 
   passthru = {
     inherit rubyEnv;
   };
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ rubyEnv.wrappedRuby libgit2_0_27 ];
-  goDeps = ./deps.nix;
-  preBuild = "rm -r go/src/gitlab.com/gitlab-org/labkit/vendor";
+  ldflags = "-X ${gitaly_package}/internal/version.version=${version} -X ${gitaly_package}/internal/version.moduleVersion=${version}";
+
+  tags = [ "static,system_libgit2" ];
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ rubyEnv.wrappedRuby libgit2_1_3_0 openssl zlib pcre http-parser ];
+  doCheck = false;
 
   postInstall = ''
     mkdir -p $ruby
-    cp -rv $src/ruby/{bin,lib,proto,git-hooks,gitlab-shell} $ruby
-
-    # gitlab-shell will try to read its config relative to the source
-    # code by default which doesn't work in nixos because it's a
-    # read-only filesystem
-    substituteInPlace $ruby/gitlab-shell/lib/gitlab_config.rb --replace \
-       "File.join(ROOT_PATH, 'config.yml')" \
-       "'/run/gitlab/shell-config.yml'"
+    cp -rv $src/ruby/{bin,lib,proto} $ruby
+    mv $out/bin/gitaly-git2go-v${lib.versions.major version} $out/bin/gitaly-git2go-${version}
   '';
 
   outputs = [ "out" "ruby" ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://gitlab.com/gitlab-org/gitaly";
     description = "A Git RPC service for handling all the git calls made by GitLab";
-    platforms = platforms.linux;
-    maintainers = with maintainers; [ roblabla globin fpletz talyz ];
+    platforms = platforms.linux ++ [ "x86_64-darwin" ];
+    maintainers = with maintainers; [ roblabla globin fpletz talyz yayayayaka ];
     license = licenses.mit;
   };
 }

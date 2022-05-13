@@ -1,14 +1,15 @@
-{ stdenv, fetchurl, fox, pkgconfig, gettext, xlibsWrapper, gcc, intltool, file, libpng }:
+{ lib, stdenv, fetchurl, fox, pkg-config, gettext, xlibsWrapper, gcc, intltool, file, libpng }:
 
 stdenv.mkDerivation rec {
-  name = "xfe-1.42";
+  pname = "xfe";
+  version = "1.42";
 
   src = fetchurl {
-    url = "mirror://sourceforge/xfe/${name}.tar.gz";
+    url = "mirror://sourceforge/xfe/xfe-${version}.tar.gz";
     sha256 = "1v1v0vcbnm30kpyd3rj8f56yh7lfnwy7nbs9785wi229b29fiqx1";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ fox gettext xlibsWrapper gcc intltool file libpng ];
 
   preConfigure = ''
@@ -17,7 +18,7 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = {
+  meta = with lib; {
     description = "MS-Explorer like file manager for X";
     longDescription = ''
       X File Explorer (Xfe) is an MS-Explorer like file manager for X.
@@ -25,8 +26,8 @@ stdenv.mkDerivation rec {
       Xfe aims to be the filemanager of choice for all the Unix addicts!
     '';
     homepage = "https://sourceforge.net/projects/xfe/";
-    license = stdenv.lib.licenses.gpl2;
-    maintainers = [];
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.gpl2;
+    maintainers = with maintainers; [ ];
+    platforms = platforms.linux;
   };
 }

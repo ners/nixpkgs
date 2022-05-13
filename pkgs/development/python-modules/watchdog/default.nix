@@ -1,32 +1,65 @@
-{ stdenv
+{ lib
+, stdenv
 , buildPythonPackage
 , fetchPypi
-, argh
 , pathtools
 , pyyaml
-, pkgs
+, flaky
+, pytest-timeout
+, pytestCheckHook
+, CoreServices
 }:
 
 buildPythonPackage rec {
   pname = "watchdog";
-  version = "0.10.2";
+  version = "2.1.7";
+  format = "setuptools";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0ss58k33l5vah894lykid6ar6kw7z1f29cl4hzr5xvgs8fvfyq65";
+    sha256 = "sha256-P9R4FTU76cRO68lMwo/iaysMW9iJ2vxKWny9+SQUNIA=";
   };
 
-  buildInputs = stdenv.lib.optionals stdenv.isDarwin
-    [ pkgs.darwin.apple_sdk.frameworks.CoreServices ];
-  propagatedBuildInputs = [ argh pathtools pyyaml ];
+  buildInputs = lib.optionals stdenv.isDarwin [ CoreServices ];
 
-  doCheck = false;
+  propagatedBuildInputs = [
+    pathtools
+    pyyaml
+  ];
 
-  meta = with stdenv.lib; {
+  checkInputs = [
+    flaky
+    pytest-timeout
+    pytestCheckHook
+  ];
+
+  postPatch = ''
+    substituteInPlace setup.cfg \
+      --replace "--cov=watchdog" "" \
+      --replace "--cov-report=term-missing" ""
+  '';
+
+  disabledTests = [
+    # probably failing because of an encoding related issue
+    "test_create_wrong_encoding"
+  ];
+
+  disabledTestPaths = [
+    # Tests are flaky
+    "tests/test_inotify_buffer.py"
+  ];
+
+  pythonImportsCheck = [
+    "watchdog"
+  ];
+
+  meta = with lib; {
     description = "Python API and shell utilities to monitor file system events";
     homepage = "https://github.com/gorakhargosh/watchdog";
     license = licenses.asl20;
     maintainers = with maintainers; [ goibhniu ];
+    # error: use of undeclared identifier 'kFSEventStreamEventFlagItemCloned'
+    # builds fine on aarch64-darwin
+    broken = stdenv.isDarwin && !stdenv.isAarch64;
   };
-
 }

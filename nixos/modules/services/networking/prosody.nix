@@ -261,7 +261,7 @@ let
 
   toLua = x:
     if builtins.isString x then ''"${x}"''
-    else if builtins.isBool x then (if x == true then "true" else "false")
+    else if builtins.isBool x then boolToString x
     else if builtins.isInt x then toString x
     else if builtins.isList x then ''{ ${lib.concatStringsSep ", " (map (n: toLua n) x) } }''
     else throw "Invalid Lua value";
@@ -500,8 +500,8 @@ in
         type = types.package;
         description = "Prosody package to use";
         default = pkgs.prosody;
-        defaultText = "pkgs.prosody";
-        example = literalExample ''
+        defaultText = literalExpression "pkgs.prosody";
+        example = literalExpression ''
           pkgs.prosody.override {
             withExtraLibs = [ pkgs.luaPackages.lpty ];
             withCommunityModules = [ "auth_external" ];
@@ -655,7 +655,7 @@ in
 
         description = "Define the virtual hosts";
 
-        type = with types; loaOf (submodule vHostOpts);
+        type = with types; attrsOf (submodule vHostOpts);
 
         example = {
           myhost = {
@@ -772,7 +772,7 @@ in
       };
 
       disco_items = {
-      ${ lib.concatStringsSep "\n" (builtins.map (x: ''{ "${x.url}", "${x.description}"};'') discoItems)} 
+      ${ lib.concatStringsSep "\n" (builtins.map (x: ''{ "${x.url}", "${x.description}"};'') discoItems)}
       };
 
       allow_registration = ${toLua cfg.allowRegistration}
@@ -820,6 +820,7 @@ in
         '') cfg.muc}
 
       ${ lib.optionalString (cfg.uploadHttp != null) ''
+        -- TODO: think about migrating this to mod-http_file_share instead.
         Component ${toLua cfg.uploadHttp.domain} "http_upload"
             http_upload_file_size_limit = ${cfg.uploadHttp.uploadFileSizeLimit}
             http_upload_expire_after = ${cfg.uploadHttp.uploadExpireAfter}

@@ -1,9 +1,10 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, options, pkgs, ... }:
 
 with lib;
 
 let
   cfg = config.services.amule;
+  opt = options.services.amule;
   user = if cfg.user != null then cfg.user else "amule";
 in
 
@@ -24,13 +25,18 @@ in
       };
 
       dataDir = mkOption {
-        default = ''/home/${user}/'';
+        type = types.str;
+        default = "/home/${user}/";
+        defaultText = literalExpression ''
+          "/home/''${config.${opt.user}}/"
+        '';
         description = ''
           The directory holding configuration, incoming and temporary files.
         '';
       };
 
       user = mkOption {
+        type = types.nullOr types.str;
         default = null;
         description = ''
           The user the AMule daemon should run as.
@@ -70,7 +76,7 @@ in
 
       script = ''
         ${pkgs.su}/bin/su -s ${pkgs.runtimeShell} ${user} \
-            -c 'HOME="${cfg.dataDir}" ${pkgs.amuleDaemon}/bin/amuled'
+            -c 'HOME="${cfg.dataDir}" ${pkgs.amule-daemon}/bin/amuled'
       '';
     };
   };

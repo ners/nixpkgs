@@ -15,13 +15,13 @@
 
 mkDerivation rec {
   pname = "lxqt-admin";
-  version = "0.15.0";
+  version = "1.1.0";
 
   src = fetchFromGitHub {
     owner = "lxqt";
     repo = pname;
     rev = version;
-    sha256 = "16fbnlvla8lq6rkv5gpmkw2jj9h1wzd3jcf8sjrbns6ygyfdxx3a";
+    sha256 = "A5dpw/vG92tC4W1q1wpDyMdRn1ScEH7m287MCEGOp9w=";
   };
 
   nativeBuildInputs = [
@@ -40,17 +40,20 @@ mkDerivation rec {
   ];
 
   postPatch = ''
-    sed "s|\''${POLKITQT-1_POLICY_FILES_INSTALL_DIR}|''${out}/share/polkit-1/actions|" \
-      -i lxqt-admin-user/CMakeLists.txt
+    for f in lxqt-admin-{time,user}/CMakeLists.txt; do
+      substituteInPlace $f --replace \
+        "\''${POLKITQT-1_POLICY_FILES_INSTALL_DIR}" \
+        "$out/share/polkit-1/actions"
+    done
   '';
 
   passthru.updateScript = lxqtUpdateScript { inherit pname version src; };
 
   meta = with lib; {
-    description = "LXQt system administration tool";
     homepage = "https://github.com/lxqt/lxqt-admin";
-    license = licenses.lgpl21;
+    description = "LXQt system administration tool";
+    license = licenses.lgpl21Plus;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ romildo ];
+    maintainers = teams.lxqt.members;
   };
 }

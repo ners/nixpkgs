@@ -1,16 +1,16 @@
-{ stdenv, fetchurl, dpkg
-, alsaLib, atk, cairo, cups, curl, dbus, expat, fontconfig, freetype, gdk-pixbuf, glib, glibc, gnome2, gnome3
+{ lib, stdenv, fetchurl, dpkg
+, alsa-lib, atk, cairo, cups, curl, dbus, expat, fontconfig, freetype, gdk-pixbuf, glib, glibc, gnome
 , gtk3, libappindicator-gtk3, libnotify, libpulseaudio, libsecret, libv4l, nspr, nss, pango, systemd, wrapGAppsHook, xorg
-, at-spi2-atk, libuuid, at-spi2-core }:
+, at-spi2-atk, libuuid, at-spi2-core, libdrm, mesa, libxkbcommon, libxshmfence }:
 
 let
 
   # Please keep the version x.y.0.z and do not update to x.y.76.z because the
   # source of the latter disappears much faster.
-  version = "8.59.0.77";
+  version = "8.82.0.403";
 
-  rpath = stdenv.lib.makeLibraryPath [
-    alsaLib
+  rpath = lib.makeLibraryPath [
+    alsa-lib
     atk
     at-spi2-atk
     at-spi2-core
@@ -26,12 +26,11 @@ let
     libsecret
     libuuid
 
-    gnome2.GConf
     gdk-pixbuf
     gtk3
     libappindicator-gtk3
 
-    gnome3.gnome-keyring
+    gnome.gnome-keyring
 
     libnotify
     libpulseaudio
@@ -40,8 +39,12 @@ let
     pango
     stdenv.cc.cc
     systemd
-    libv4l
 
+    libv4l
+    libdrm
+    mesa
+    libxkbcommon
+    libxshmfence
     xorg.libxkbfile
     xorg.libX11
     xorg.libXcomposite
@@ -65,7 +68,7 @@ let
           "https://mirror.cs.uchicago.edu/skype/pool/main/s/skypeforlinux/skypeforlinux_${version}_amd64.deb"
           "https://web.archive.org/web/https://repo.skype.com/deb/pool/main/s/skypeforlinux/skypeforlinux_${version}_amd64.deb"
         ];
-        sha256 = "1cnlwlp84942ywji3x60zvhijavazdxfym3rfzq3ysky28b6mn6i";
+        sha256 = "sha256-45aHb6BI0kUnJOlRsglyGdZ6+8sLmHZK3FN8nYpuHXM=";
       }
     else
       throw "Skype for linux is not supported on ${stdenv.hostPlatform.system}";
@@ -108,13 +111,17 @@ in stdenv.mkDerivation {
     # Fix the desktop link
     substituteInPlace $out/share/applications/skypeforlinux.desktop \
       --replace /usr/bin/ $out/bin/
+    substituteInPlace $out/share/applications/skypeforlinux-share.desktop \
+      --replace /usr/bin/ $out/bin/
+    substituteInPlace $out/share/kservices5/ServiceMenus/skypeforlinux.desktop \
+      --replace /usr/bin/ $out/bin/
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Linux client for skype";
     homepage = "https://www.skype.com";
     license = licenses.unfree;
-    maintainers = with stdenv.lib.maintainers; [ panaeon jraygauthier ];
+    maintainers = with maintainers; [ panaeon jraygauthier ];
     platforms = [ "x86_64-linux" ];
   };
 }

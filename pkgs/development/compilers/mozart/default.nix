@@ -4,12 +4,12 @@
 , cmake
 , unzip
 , makeWrapper
-, boost
+, boost169
+, pinnedBoost ? boost169
 , llvmPackages
 , llvmPackages_5
 , gmp
 , emacs
-, emacs25-nox
 , jre_headless
 , tcl
 , tk
@@ -61,26 +61,26 @@ in stdenv.mkDerivation rec {
     # gcc together as compilers and we need clang for the sources generation.
     # However, clang emits tons of warnings about gcc's atomic-base library.
     "-DCMAKE_CXX_FLAGS=-Wno-braced-scalar-init"
-  ] ++ lib.optional stdenv.isDarwin "-DCMAKE_FIND_FRAMEWORK=LAST";
+  ];
 
   fixupPhase = ''
     wrapProgram $out/bin/oz --set OZEMACS ${emacs}/bin/emacs
   '';
 
   buildInputs = [
-    boost
+    pinnedBoost
     llvmPackages_5.llvm
     llvmPackages_5.clang
     llvmPackages_5.clang-unwrapped
     gmp
-    emacs25-nox
+    emacs
     jre_headless
     tcl
     tk
   ];
 
   meta = {
-    description = "An open source implementation of Oz 3.";
+    description = "An open source implementation of Oz 3";
     maintainers = [ lib.maintainers.layus ];
     license = lib.licenses.bsd2;
     homepage = "https://mozart.github.io";

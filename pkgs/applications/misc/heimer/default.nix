@@ -2,13 +2,13 @@
 
 mkDerivation rec {
   pname = "heimer";
-  version = "1.15.1";
+  version = "3.2.0";
 
   src = fetchFromGitHub {
     owner = "juzzlin";
     repo = pname;
     rev = version;
-    sha256 = "13a9yfq7m8jhirb31i0mmigqb135r585zwqddknl090d88164fic";
+    sha256 = "sha256-aAFhShsC3FLGgtF/8XJbWIMBEO3/gcGeDZei69Luz+s=";
   };
 
   nativeBuildInputs = [ cmake ];
@@ -19,5 +19,6 @@ mkDerivation rec {
     homepage = "https://github.com/juzzlin/Heimer";
     license = licenses.gpl3;
     maintainers  = with maintainers; [ dtzWill ];
+    platforms = platforms.linux;
   };
 }

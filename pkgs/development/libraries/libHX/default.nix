@@ -1,22 +1,24 @@
-{ stdenv, fetchurl, autoconf, automake, libtool }:
+{ lib, stdenv, fetchurl, autoconf, automake, libtool }:
 
 stdenv.mkDerivation rec {
-  name = "libHX-3.22";
+  pname = "libHX";
+  version = "3.22";
 
   src = fetchurl {
-    url = "mirror://sourceforge/libhx/libHX/3.22/${name}.tar.xz";
+    url = "mirror://sourceforge/libhx/libHX/${version}/${pname}-${version}.tar.xz";
     sha256 = "18w39j528lyg2026dr11f2xxxphy91cg870nx182wbd8cjlqf86c";
   };
 
   patches = [];
 
-  buildInputs = [ autoconf automake libtool ];
+  nativeBuildInputs = [ autoconf automake ];
+  buildInputs = [ libtool ];
 
   preConfigure = ''
     sh autogen.sh
     '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "http://libhx.sourceforge.net/";
     longDescription = ''
       libHX is a C library (with some C++ bindings available) that provides data structures

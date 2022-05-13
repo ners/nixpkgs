@@ -1,5 +1,7 @@
-{ stdenv
+{ lib
+, stdenv
 , fetchFromGitHub
+, nix-update-script
 , meson
 , ninja
 , vala
@@ -9,22 +11,27 @@
 , gettext
 , glib
 , gtk3
-, bamf
-, libwnck3
+, libwnck
 , libgee
 , libgtop
+, libhandy
+, sassc
+, udisks2
 , wrapGAppsHook
+, libX11
+, libXext
+, libXNVCtrl
 }:
 
 stdenv.mkDerivation rec {
   pname = "monitor";
-  version = "0.7.2";
+  version = "0.13.0";
 
   src = fetchFromGitHub {
     owner = "stsdc";
     repo = "monitor";
     rev = version;
-    sha256 ="1gd2i7gja4k9j4xac8jnls3v41d6qqhmqradz2jbsxwm2sk3cgcf";
+    sha256 = "sha256-qwx60cp3Q6PL1iwRP+M9Rtmxcis0EByi8fk13H4cXfc=";
     fetchSubmodules = true;
   };
 
@@ -39,15 +46,28 @@ stdenv.mkDerivation rec {
   ];
 
   buildInputs = [
-    bamf
     glib
     gtk3
     pantheon.granite
     pantheon.wingpanel
     libgee
     libgtop
-    libwnck3
+    libhandy
+    libwnck
+    sassc
+    udisks2
+    libX11
+    libXext
+    libXNVCtrl
   ];
+
+  # Force link against Xext, otherwise build fails with:
+  # ld: /nix/store/...-libXNVCtrl-495.46/lib/libXNVCtrl.a(NVCtrl.o): undefined reference to symbol 'XextAddDisplay'
+  # ld: /nix/store/...-libXext-1.3.4/lib/libXext.so.6: error adding symbols: DSO missing from command line
+  # https://github.com/stsdc/monitor/issues/292
+  NIX_LDFLAGS = "-lXext";
+
+  mesonFlags = [ "-Dindicator-wingpanel=enabled" ];
 
   postPatch = ''
     chmod +x meson/post_install.py
@@ -55,12 +75,12 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    updateScript = pantheon.updateScript {
+    updateScript = nix-update-script {
       attrPath = pname;
     };
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Manage processes and monitor system resources";
     longDescription = ''
       Manage processes and monitor system resources.
@@ -68,8 +88,9 @@ stdenv.mkDerivation rec {
       section in the NixOS manual.
     '';
     homepage = "https://github.com/stsdc/monitor";
-    maintainers = with maintainers; [ xiorcale ] ++ pantheon.maintainers;
+    maintainers = with maintainers; [ xiorcale ] ++ teams.pantheon.members;
     platforms = platforms.linux;
-    license = licenses.gpl3;
+    license = licenses.gpl3Plus;
+    mainProgram = "com.github.stsdc.monitor";
   };
 }

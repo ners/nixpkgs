@@ -1,12 +1,14 @@
-{ stdenv, fetchFromGitHub }: stdenv.mkDerivation rec {
+{ lib, stdenv, fetchFromGitHub }:
+
+stdenv.mkDerivation rec {
   pname = "tt-rss-theme-feedly";
-  version = "2.3.1";
+  version = "2.9.1";
 
   src = fetchFromGitHub {
     owner = "levito";
     repo = "tt-rss-feedly-theme";
     rev = "v${version}";
-    sha256 = "0rl5g664grx3m7yxa14rgnbvnlc3xnn44kzjji5layxww6jd8h2s";
+    sha256 = "sha256-lxdhEPlKUt6eHcIlD7nd7+CiFC5+s+Me06O7hWB9C4k=";
   };
 
   dontBuild = true;
@@ -17,7 +19,7 @@
     cp -ra feedly *.css $out
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Feedly theme for Tiny Tiny RSS";
     license = licenses.wtfpl;
     homepage = "https://github.com/levito/tt-rss-feedly-theme";

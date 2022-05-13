@@ -1,31 +1,50 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, requests
 , mock
+, pyjwt
+, pytestCheckHook
+, pythonOlder
+, requests
 }:
 
 buildPythonPackage rec {
   pname = "auth0-python";
-  version = "3.9.1";
+  version = "3.22.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "c2fdc3ff230638a2776d2b3761e787ca93dc33a26f841504fc260f947256f453";
+    sha256 = "sha256-05yJbF6eXz+vJx+plY5gqzRRYL2SjDnF7gSfX6WIS4E=";
   };
 
   propagatedBuildInputs = [
     requests
+    pyjwt
   ];
 
   checkInputs = [
     mock
+    pytestCheckHook
+  ];
+
+  disabledTests = [
+    # tries to ping websites (e.g. google.com)
+    "can_timeout"
+    "test_options_are_created_by_default"
+    "test_options_are_used_and_override"
+  ];
+
+  pythonImportsCheck = [
+    "auth0"
   ];
 
   meta = with lib; {
     description = "Auth0 Python SDK";
     homepage = "https://github.com/auth0/auth0-python";
     license = licenses.mit;
-    maintainers = [ maintainers.costrouc ];
+    maintainers = with maintainers; [ costrouc ];
   };
 }

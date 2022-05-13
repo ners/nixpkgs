@@ -1,20 +1,29 @@
-{ stdenv, fetchgit, buildPythonPackage
+{ lib
+, fetchFromSourcehut
+, buildPythonPackage
+, srht
+, redis
+, alembic
+, pystache
+, pytest
+, factory_boy
 , python
-, srht, redis, alembic, pystache
-, pytest, factory_boy, writeText }:
+}:
 
 buildPythonPackage rec {
   pname = "todosrht";
-  version = "0.57.14";
+  version = "0.67.2";
 
-  src = fetchgit {
-    url = "https://git.sr.ht/~sircmpwn/todo.sr.ht";
+  src = fetchFromSourcehut {
+    owner = "~sircmpwn";
+    repo = "todo.sr.ht";
     rev = version;
-    sha256 = "nlTf7KV6vjqqVEXZ6OOZ5dAj1iHTDPYj4DnAD2hGp5c=";
+    sha256 = "sha256-/QHsMlhzyah85ubZyx8j4GDUoITuWcLDJKosbZGeOZU=";
   };
 
   patches = [
-    ./use-srht-path.patch
+    # Revert change breaking Unix socket support for Redis
+    patches/redis-socket/todo/0001-Revert-Add-webhook-queue-monitoring.patch
   ];
 
   nativeBuildInputs = srht.nativeBuildInputs;
@@ -38,11 +47,12 @@ buildPythonPackage rec {
   ];
 
   dontUseSetuptoolsCheck = true;
+  pythonImportsCheck = [ "todosrht" ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://todo.sr.ht/~sircmpwn/todo.sr.ht";
     description = "Ticket tracking service for the sr.ht network";
-    license = licenses.agpl3;
+    license = licenses.agpl3Only;
     maintainers = with maintainers; [ eadwu ];
   };
 }

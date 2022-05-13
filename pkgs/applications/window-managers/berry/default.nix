@@ -1,30 +1,61 @@
-{ stdenv, fetchFromGitHub
-, libX11, libXft, libXinerama, fontconfig, freetype }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, copyDesktopItems
+, fontconfig
+, freetype
+, libX11
+, libXext
+, libXft
+, libXinerama
+, makeDesktopItem
+, pkg-config
+, which
+}:
 
 stdenv.mkDerivation rec {
   pname = "berry";
-  version = "0.1.5";
+  version = "0.1.11";
 
   src = fetchFromGitHub {
     owner = "JLErvin";
-    repo = "berry";
+    repo = pname;
     rev = version;
-    sha256 = "1wxbjzpwqb9x7vd7kb095fiqj271rki980dnwcxjxpqlmmrmjzyl";
+    hash = "sha256-cs1NVwaANMIteCQuGqPcEWuUbfJulhjmfWnlU8Eb2OM=";
   };
 
-  buildInputs = [ libX11 libXft libXinerama fontconfig freetype ];
+  nativeBuildInputs = [
+    copyDesktopItems
+    pkg-config
+    which
+  ];
 
-  preBuild = ''
-    makeFlagsArray+=( PREFIX="${placeholder "out"}"
-                      X11INC="${libX11.dev}/include"
-                      X11LIB="${libX11}/lib"
-                      XINERAMALIBS="-lXinerama"
-                      XINERAMAFLAGS="-DXINERAMA"
-                      FREETYPELIBS="-lfontconfig -lXft"
-                      FREETYPEINC="${freetype.dev}/include/freetype2" )
+  buildInputs =[
+    libX11
+    libXext
+    libXft
+    libXinerama
+    fontconfig
+    freetype
+  ];
+
+  preConfigure = ''
+    patchShebangs configure
   '';
 
-  meta = with stdenv.lib; {
+  desktopItems = [
+    (makeDesktopItem {
+      name = pname;
+      exec = "berry";
+      comment = meta.description;
+      desktopName = "Berry Window Manager";
+      genericName = "Berry Window Manager";
+      categories = [ "Utility" ];
+    })
+  ];
+
+  meta = with lib; {
+    homepage = "https://berrywm.org/";
     description = "A healthy, bite-sized window manager";
     longDescription = ''
       berry is a healthy, bite-sized window manager written in C for unix
@@ -39,7 +70,6 @@ stdenv.mkDerivation rec {
       - Intuitively place new windows in unoccupied spaces.
       - Virtual desktops.
     '';
-    homepage = "https://berrywm.org/";
     license = licenses.mit;
     maintainers = [ maintainers.AndersonTorres ];
     platforms = platforms.linux;

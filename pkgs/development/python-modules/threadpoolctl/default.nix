@@ -1,32 +1,33 @@
 { lib
 , buildPythonPackage
-, isPy27
+, pythonOlder
 , fetchFromGitHub
 , flit
-, pytest
-, pytestcov
+, pytestCheckHook
 , numpy
 , scipy
 }:
 
 buildPythonPackage rec {
   pname = "threadpoolctl";
-  version = "2.0.0";
+  version = "3.0.0";
 
-  disabled = isPy27;
+  disabled = pythonOlder "3.6";
   format = "flit";
 
   src = fetchFromGitHub {
     owner = "joblib";
     repo = pname;
     rev = version;
-    sha256 = "16z4n82f004i4l1jw6qrzazda1m6v2yjnpqlp71ipa8mzy9kw7dw";
+    sha256 = "02zccsiq4gvawy7q2fh3m3hvr40hl2ylmwwny6dv0lqsr2iwgnmn";
   };
 
-  checkInputs = [ pytest pytestcov numpy scipy ];
-
-  checkPhase = "pytest tests -k 'not test_nested_prange_blas'";
-  # cython doesn't get run on the tests when added to nativeBuildInputs, breaking this test
+  checkInputs = [ pytestCheckHook numpy scipy ];
+  disabledTests = [
+    # accepts a limited set of cpu models based on project
+    # developers' hardware
+    "test_architecture"
+  ];
 
   meta = with lib; {
     homepage = "https://github.com/joblib/threadpoolctl";

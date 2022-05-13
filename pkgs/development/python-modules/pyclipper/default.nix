@@ -1,32 +1,31 @@
-{ stdenv
+{ lib
 , fetchPypi
 , buildPythonPackage
-, setuptools_scm
+, setuptools-scm
 , cython
+, pytestCheckHook
+, unittest2
 }:
 
 buildPythonPackage rec {
   pname = "pyclipper";
-  version = "1.1.0.post3";
+  version = "1.3.0";
 
   src = fetchPypi {
     inherit pname version;
     extension = "zip";
-    sha256 = "164yksvqwqvwzh8f8lq92asg87hd8rvcy2xb5vm4y4ccvd5xgb7i";
+    sha256 = "48a1b5c585aea10e5b9c0b82d6abe2642fafd9ef158b9921852bc4af815ca20c";
   };
 
   nativeBuildInputs = [
-    setuptools_scm
+    setuptools-scm
     cython
   ];
 
-  # Requires pytest_runner to perform tests, which requires deprecated
-  # features of setuptools. Seems better to not run tests. This should
-  # be fixed upstream.
-  doCheck = false;
+  checkInputs = [ pytestCheckHook unittest2 ];
   pythonImportsCheck = [ "pyclipper" ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Cython wrapper for clipper library";
     homepage    = "https://github.com/fonttools/pyclipper";
     license     = licenses.mit;

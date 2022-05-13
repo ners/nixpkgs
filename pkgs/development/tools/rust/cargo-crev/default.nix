@@ -1,23 +1,42 @@
-{ stdenv, fetchFromGitHub, rustPlatform, Security, openssl, pkgconfig, libiconv, curl }:
+{ lib, stdenv
+, fetchFromGitHub
+, rustPlatform
+, perl
+, pkg-config
+, SystemConfiguration
+, Security
+, curl
+, libiconv
+, openssl
+, git
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "cargo-crev";
-  version = "0.16.1";
+  version = "0.23.1";
 
   src = fetchFromGitHub {
     owner = "crev-dev";
     repo = "cargo-crev";
     rev = "v${version}";
-    sha256 = "16da30zbv8f7w8bxsssmrpzm41a966wby1l6ldyiiszs980qh7c5";
+    sha256 = "sha256-XzjZEVyPVn+7VrjG4QsqVBFmuGC1TWTWLEoqFcwQhaI=";
   };
 
-  cargoSha256 = "0z365pgdd95apk2zz2n0gx85s0gf8ccfbqippxqn1fdsppihib6g";
+  cargoSha256 = "sha256-p87ZnOxaF9ytSUxp0P3QE3K1/jo7hz/N7BH1f2Lc0I0=";
 
-  nativeBuildInputs = [ pkgconfig ];
+  preCheck = ''
+    export HOME=$(mktemp -d)
+    git config --global user.name "Nixpkgs Test"
+    git config --global user.email "nobody@example.com"
+  '';
 
-  buildInputs = [ openssl ] ++ stdenv.lib.optionals stdenv.isDarwin [ Security libiconv curl ];
+  nativeBuildInputs = [ perl pkg-config ];
 
-  meta = with stdenv.lib; {
+  buildInputs = [ openssl ] ++ lib.optionals stdenv.isDarwin [ SystemConfiguration Security libiconv curl ];
+
+  checkInputs = [ git ];
+
+  meta = with lib; {
     description = "A cryptographically verifiable code review system for the cargo (Rust) package manager";
     homepage = "https://github.com/crev-dev/cargo-crev";
     license = with licenses; [ asl20 mit mpl20 ];

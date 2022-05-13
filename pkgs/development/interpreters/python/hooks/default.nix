@@ -1,18 +1,35 @@
 # Hooks for building Python packages.
 { python
-, callPackage
+, lib
 , makeSetupHook
 , disabledIf
 , isPy3k
 , ensureNewerSourcesForZipFilesHook
+, findutils
 }:
 
 let
+  callPackage = python.pythonForBuild.pkgs.callPackage;
   pythonInterpreter = python.pythonForBuild.interpreter;
   pythonSitePackages = python.sitePackages;
   pythonCheckInterpreter = python.interpreter;
   setuppy = ../run_setup.py;
 in rec {
+
+  condaInstallHook = callPackage ({ gnutar, lbzip2 }:
+    makeSetupHook {
+      name = "conda-install-hook";
+      deps = [ gnutar lbzip2 ];
+      substitutions = {
+        inherit pythonSitePackages;
+      };
+    } ./conda-install-hook.sh) {};
+
+  condaUnpackHook = callPackage ({}:
+    makeSetupHook {
+      name = "conda-unpack-hook";
+      deps = [];
+    } ./conda-unpack-hook.sh) {};
 
   eggBuildHook = callPackage ({ }:
     makeSetupHook {
@@ -93,9 +110,28 @@ in rec {
     makeSetupHook {
       name = "python-namespaces-hook.sh";
       substitutions = {
-        inherit pythonSitePackages;
+        inherit pythonSitePackages findutils;
       };
     } ./python-namespaces-hook.sh) {};
+
+  pythonRecompileBytecodeHook = callPackage ({ }:
+    makeSetupHook {
+      name = "python-recompile-bytecode-hook";
+      substitutions = {
+        inherit pythonInterpreter pythonSitePackages;
+        compileArgs = lib.concatStringsSep " " (["-q" "-f" "-i -"] ++ lib.optionals isPy3k ["-j $NIX_BUILD_CORES"]);
+        bytecodeName = if isPy3k then "__pycache__" else "*.pyc";
+      };
+    } ./python-recompile-bytecode-hook.sh ) {};
+
+  pythonRelaxDepsHook = callPackage ({ wheel }:
+    makeSetupHook {
+      name = "python-relax-deps-hook";
+      deps = [ wheel ];
+      substitutions = {
+        inherit pythonInterpreter;
+      };
+    } ./python-relax-deps-hook.sh) {};
 
   pythonRemoveBinBytecodeHook = callPackage ({ }:
     makeSetupHook {
@@ -134,12 +170,18 @@ in rec {
       deps = [ ensureNewerSourcesForZipFilesHook ];
       substitutions = {
         inherit pythonInterpreter;
-    };
-  } ./venv-shell-hook.sh) {});
+      };
+    } ./venv-shell-hook.sh) {});
 
   wheelUnpackHook = callPackage ({ wheel }:
     makeSetupHook {
       name = "wheel-unpack-hook.sh";
       deps = [ wheel ];
     } ./wheel-unpack-hook.sh) {};
+
+  sphinxHook = callPackage ({ sphinx }:
+    makeSetupHook {
+      name = "python${python.pythonVersion}-sphinx-hook";
+      deps = [ sphinx ];
+    } ./sphinx-hook.sh) {};
 }

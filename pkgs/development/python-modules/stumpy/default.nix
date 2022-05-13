@@ -7,22 +7,18 @@
 , pandas
 , dask
 , distributed
-, coverage
-, flake8
-, black
-, pytest
-, codecov
+, pytestCheckHook
 }:
 
-buildPythonPackage {
+buildPythonPackage rec {
   pname = "stumpy";
-  version = "1.0";
+  version = "1.10.2";
 
   src = fetchFromGitHub {
     owner = "TDAmeritrade";
     repo = "stumpy";
-    rev = "115e477c1eec9291ab7c1fd8da30d67a70854f8e"; # no git version tag
-    sha256 = "0s2s3y855jjwdb7p55zx8lknplz58ghpw547yzmqisacr968b67w";
+    rev = "v${version}";
+    sha256 = "1v17lxqgvkd3n33c2y1j1zy74xy92vsx2l89yhan89msnnb7aafr";
   };
 
   propagatedBuildInputs = [
@@ -35,16 +31,14 @@ buildPythonPackage {
     pandas
     dask
     distributed
-    coverage
-    flake8
-    black
-    pytest
-    codecov
+    pytestCheckHook
   ];
 
-  checkPhase = ''
-    pytest
-  '';
+  pytestFlagsArray = [
+    # whole testsuite is very CPU intensive, only run core tests
+    # TODO: move entire test suite to passthru.tests
+    "tests/test_core.py"
+  ];
 
   meta = with lib; {
     description = "A powerful and scalable library that can be used for a variety of time series data mining tasks";

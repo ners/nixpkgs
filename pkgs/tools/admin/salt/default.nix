@@ -5,49 +5,50 @@
   # passing them in this array enables Salt to find them.
 , extraInputs ? []
 }:
-let
 
+let
   py = python3.override {
     packageOverrides = self: super: {
-      # Can be unpinned once https://github.com/saltstack/salt/issues/56007 is resolved
-      msgpack = super.msgpack.overridePythonAttrs (
-        oldAttrs: rec {
-          version = "0.6.2";
-          src = oldAttrs.src.override {
-            inherit version;
-            sha256 = "0c0q3vx0x137567msgs5dnizghnr059qi5kfqigxbz26jf2jyg7a";
-          };
-        }
-      );
-    };
+      # Incompatible with pyzmq 22
+      pyzmq = super.pyzmq.overridePythonAttrs (oldAttrs: rec {
+        version = "21.0.2";
+        src = oldAttrs.src.override {
+          inherit version;
+          sha256 = "CYwTxhmJE8KgaQI1+nTS5JFhdV9mtmO+rsiWUVVMx5w=";
+        };
+      });
+   };
   };
-
 in
 py.pkgs.buildPythonApplication rec {
   pname = "salt";
-  version = "3000.3";
+  version = "3004.1";
 
   src = py.pkgs.fetchPypi {
     inherit pname version;
-    sha256 = "19yfjhidx93rl9s03lvrfz7kp0xxigyv4d3zb9792zb9bsc4kjpw";
+    hash = "sha256-fzRKJDJkik8HjapazMaNzf/hCVzqE+wh5QQTVg8Ewpg=";
   };
 
   propagatedBuildInputs = with py.pkgs; [
+    distro
     jinja2
     markupsafe
     msgpack
-    pycrypto
+    psutil
+    pycryptodomex
     pyyaml
     pyzmq
     requests
-    tornado_4
+    tornado
   ] ++ extraInputs;
 
   patches = [ ./fix-libcrypto-loading.patch ];
 
   postPatch = ''
     substituteInPlace "salt/utils/rsax931.py" \
-      --subst-var-by "libcrypto" "${openssl.out}/lib/libcrypto.so"
+      --subst-var-by "libcrypto" "${lib.getLib openssl}/lib/libcrypto.so"
+    substituteInPlace requirements/base.txt \
+      --replace contextvars ""
   '';
 
   # The tests fail due to socket path length limits at the very least;
@@ -56,9 +57,10 @@ py.pkgs.buildPythonApplication rec {
   doCheck = false;
 
   meta = with lib; {
-    homepage = "https://saltstack.com/";
+    homepage = "https://saltproject.io/";
+    changelog = "https://docs.saltproject.io/en/latest/topics/releases/${version}.html";
     description = "Portable, distributed, remote execution and configuration management system";
-    maintainers = with maintainers; [ aneeshusa ];
+    maintainers = with maintainers; [ Flakebi ];
     license = licenses.asl20;
   };
 }

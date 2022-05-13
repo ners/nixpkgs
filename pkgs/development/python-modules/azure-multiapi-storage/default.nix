@@ -1,20 +1,28 @@
-{ lib, python, buildPythonPackage, fetchPypi, isPy27
+{ lib, buildPythonPackage, fetchPypi, isPy27
 , azure-common
+, azure-core
 , msrest
 , msrestazure
+, requests
 }:
 
 buildPythonPackage rec {
-  version = "0.2.4";
+  version = "0.8.0";
   pname = "azure-multiapi-storage";
   disabled = isPy27;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0zqapc4dx6qd9bcim5fjykk3n1j84p85nwqyb876nb7qmqx9spig";
+    sha256 = "sha256-ZRiqnxPRdSOqyRMwuvxqKiZcxMbhVEYJ09CIlepc/B4=";
   };
 
-  propagatedBuildInputs = [ azure-common msrest msrestazure ];
+  propagatedBuildInputs = [
+    azure-common
+    azure-core
+    msrest
+    msrestazure
+    requests
+  ];
 
   # fix namespace
   pythonNamespaces = [ "azure.multiapi" ];

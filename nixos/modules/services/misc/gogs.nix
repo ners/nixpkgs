@@ -1,9 +1,10 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, options, pkgs, ... }:
 
 with lib;
 
 let
   cfg = config.services.gogs;
+  opt = options.services.gogs;
   configFile = pkgs.writeText "app.ini" ''
     APP_NAME = ${cfg.appName}
     RUN_USER = ${cfg.user}
@@ -25,7 +26,6 @@ let
     HTTP_ADDR = ${cfg.httpAddress}
     HTTP_PORT = ${toString cfg.httpPort}
     ROOT_URL = ${cfg.rootUrl}
-    STATIC_ROOT_PATH = ${cfg.staticRootPath}
 
     [session]
     COOKIE_NAME = session
@@ -130,6 +130,7 @@ in
         path = mkOption {
           type = types.str;
           default = "${cfg.stateDir}/data/gogs.db";
+          defaultText = literalExpression ''"''${config.${opt.stateDir}}/data/gogs.db"'';
           description = "Path to the sqlite3 database file.";
         };
       };
@@ -143,6 +144,7 @@ in
       repositoryRoot = mkOption {
         type = types.str;
         default = "${cfg.stateDir}/repositories";
+        defaultText = literalExpression ''"''${config.${opt.stateDir}}/repositories"'';
         description = "Path to the git repositories.";
       };
 
@@ -177,13 +179,6 @@ in
           Marks session cookies as "secure" as a hint for browsers to only send
           them via HTTPS. This option is recommend, if Gogs is being served over HTTPS.
         '';
-      };
-
-      staticRootPath = mkOption {
-        type = types.str;
-        default = "${pkgs.gogs.data}";
-        example = "/var/lib/gogs/data";
-        description = "Upper level of template and static files path.";
       };
 
       extraConfig = mkOption {

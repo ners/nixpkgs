@@ -1,9 +1,9 @@
-{ stdenv, fetchurl, ncurses, xlibsWrapper }:
+{ lib, stdenv, fetchurl, fetchpatch, ncurses, xlibsWrapper }:
 
 let
    useX11 = !stdenv.isAarch32 && !stdenv.isMips;
    useNativeCompilers = !stdenv.isMips;
-   inherit (stdenv.lib) optional optionals optionalString;
+   inherit (lib) optional optionals optionalString;
 in
 
 stdenv.mkDerivation rec {
@@ -14,6 +14,12 @@ stdenv.mkDerivation rec {
     url = "https://caml.inria.fr/pub/distrib/ocaml-4.00/${pname}-${version}.tar.bz2";
     sha256 = "33c3f4acff51685f5bfd7c260f066645e767d4e865877bf1613c176a77799951";
   };
+
+  # Compatibility with Glibc 2.34
+  patches = [ (fetchpatch {
+    url = "https://github.com/ocaml/ocaml/commit/60b0cdaf2519d881947af4175ac4c6ff68901be3.patch";
+    sha256 = "sha256:07g9q9sjk4xsbqix7jxggfp36v15pmqw4bms80g5car0hfbszirn";
+  })];
 
   prefixKey = "-prefix ";
   configureFlags = [ "-no-tk" ] ++ optionals useX11 [ "-x11lib" xlibsWrapper ];
@@ -33,7 +39,7 @@ stdenv.mkDerivation rec {
     nativeCompilers = useNativeCompilers;
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "http://caml.inria.fr/ocaml";
     branch = "4.00";
     license = with licenses; [

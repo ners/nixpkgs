@@ -1,28 +1,101 @@
-{ stdenv, buildPythonPackage, fetchPypi, isPy27, makeDesktopItem, intervaltree, jedi, pycodestyle,
-  psutil, pyflakes, rope, numpy, scipy, matplotlib, pylint, keyring, numpydoc,
-  qtconsole, qtawesome, nbconvert, mccabe, pyopengl, cloudpickle, pygments,
-  spyder-kernels, qtpy, pyzmq, chardet, qdarkstyle, watchdog, python-language-server
-, pyqtwebengine, atomicwrites, pyxdg, diff-match-patch
+{ lib
+, buildPythonPackage
+, fetchPypi
+, pythonOlder
+, makeDesktopItem
+, atomicwrites
+, chardet
+, cloudpickle
+, cookiecutter
+, diff-match-patch
+, flake8
+, intervaltree
+, jedi
+, jellyfish
+, keyring
+, matplotlib
+, mccabe
+, nbconvert
+, numpy
+, numpydoc
+, psutil
+, pygments
+, pylint
+, pyls-spyder
+, pyopengl
+, pyqtwebengine
+, python-lsp-black
+, python-lsp-server
+, pyxdg
+, pyzmq
+, pycodestyle
+, qdarkstyle
+, qstylizer
+, qtawesome
+, qtconsole
+, qtpy
+, rope
+, Rtree
+, scipy
+, spyder-kernels
+, textdistance
+, three-merge
+, watchdog
+, pytestCheckHook
 }:
 
 buildPythonPackage rec {
   pname = "spyder";
-  version = "4.1.2";
+  version = "5.3.0";
 
-  disabled = isPy27;
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0qyisrs9xkzx4hbyin9nasvl10qk7jlxrmyasxycz4zwnvzfvxzf";
+    sha256 = "sha256-ggCFvYUdUm5fVSpTZoN/OhNPJAQOyehwrQprYTzprbc=";
   };
 
   nativeBuildInputs = [ pyqtwebengine.wrapQtAppsHook ];
 
   propagatedBuildInputs = [
-    intervaltree jedi pycodestyle psutil pyflakes rope numpy scipy matplotlib pylint keyring
-    numpydoc qtconsole qtawesome nbconvert mccabe pyopengl cloudpickle spyder-kernels
-    pygments qtpy pyzmq chardet pyqtwebengine qdarkstyle watchdog python-language-server
-    atomicwrites pyxdg diff-match-patch
+    atomicwrites
+    chardet
+    cloudpickle
+    cookiecutter
+    diff-match-patch
+    flake8
+    intervaltree
+    jedi
+    jellyfish
+    keyring
+    matplotlib
+    mccabe
+    nbconvert
+    numpy
+    numpydoc
+    psutil
+    pygments
+    pylint
+    pyls-spyder
+    pyopengl
+    pyqtwebengine
+    python-lsp-black
+    python-lsp-server
+    pyxdg
+    pyzmq
+    pycodestyle
+    qdarkstyle
+    qstylizer
+    qtawesome
+    qtconsole
+    qtpy
+    rope
+    Rtree
+    scipy
+    spyder-kernels
+    textdistance
+    three-merge
+    watchdog
   ];
 
   # There is no test for spyder
@@ -35,20 +108,21 @@ buildPythonPackage rec {
     comment = "Scientific Python Development Environment";
     desktopName = "Spyder";
     genericName = "Python IDE";
-    categories = "Application;Development;IDE;";
+    categories = [ "Development" "IDE" ];
   };
 
   postPatch = ''
     # remove dependency on pyqtwebengine
     # this is still part of the pyqt 5.11 version we have in nixpkgs
     sed -i /pyqtwebengine/d setup.py
-    substituteInPlace setup.py --replace "pyqt5<5.13" "pyqt5"
+    substituteInPlace setup.py \
+      --replace "ipython>=7.31.1,<8.0.0" "ipython"
   '';
 
   postInstall = ''
     # add Python libs to env so Spyder subprocesses
     # created to run compute kernels don't fail with ImportErrors
-    wrapProgram $out/bin/spyder3 --prefix PYTHONPATH : "$PYTHONPATH"
+    wrapProgram $out/bin/spyder --prefix PYTHONPATH : "$PYTHONPATH"
 
     # Create desktop item
     mkdir -p $out/share/icons
@@ -62,14 +136,16 @@ buildPythonPackage rec {
     makeWrapperArgs+=("''${qtWrapperArgs[@]}")
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Scientific python development environment";
     longDescription = ''
       Spyder (previously known as Pydee) is a powerful interactive development
       environment for the Python language with advanced editing, interactive
       testing, debugging and introspection features.
     '';
-    homepage = "https://github.com/spyder-ide/spyder/";
+    homepage = "https://www.spyder-ide.org/";
+    downloadPage = "https://github.com/spyder-ide/spyder/releases";
+    changelog = "https://github.com/spyder-ide/spyder/blob/master/CHANGELOG.md";
     license = licenses.mit;
     platforms = platforms.linux;
     maintainers = with maintainers; [ gebner ];

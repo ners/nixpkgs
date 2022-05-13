@@ -2,7 +2,6 @@
 , buildPythonPackage
 , fetchPypi
 , dask
-, distributed
 , bokeh
 , toolz
 , datashape
@@ -14,31 +13,27 @@
 , colorcet
 , param
 , pyct
-, pyyaml
-, requests
-, scikitimage
 , scipy
-, pytest
-, pytest-benchmark
-, flake8
+, pytestCheckHook
 , nbsmoke
 , fastparquet
-, testpath
 , nbconvert
+, pytest-xdist
+, netcdf4
 }:
 
 buildPythonPackage rec {
   pname = "datashader";
-  version = "0.9.0";
+  version = "0.13.0";
+  format = "setuptools";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "3a423d61014ae8d2668848edab6c12a6244be6f249570bd7811dd5698d5ff633";
+    sha256 = "sha256-6JscHm1QjDmXOLLa83qhAvY/xwvlPM6duQ1lSxnCVV8=";
   };
 
   propagatedBuildInputs = [
     dask
-    distributed
     bokeh
     toolz
     datashape
@@ -50,36 +45,56 @@ buildPythonPackage rec {
     colorcet
     param
     pyct
-    pyyaml
-    requests
-    scikitimage
     scipy
-    testpath
-  ];
+  ] ++ dask.extras-require.complete;
 
   checkInputs = [
-    pytest
-    pytest-benchmark
-    flake8
+    pytestCheckHook
+    pytest-xdist
     nbsmoke
     fastparquet
-    pandas
     nbconvert
+    netcdf4
   ];
 
-  postConfigure = ''
+  # The complete extra is for usage with conda, which we
+  # don't care about
+  postPatch = ''
     substituteInPlace setup.py \
-      --replace "'testpath<0.4'" "'testpath'"
+      --replace "dask[complete]" "dask" \
+      --replace "xarray >=0.9.6" "xarray"
   '';
 
-  checkPhase = ''
-    pytest datashader
+  preCheck = ''
+    export HOME=$TMPDIR
   '';
 
-  meta = with lib; {
+  pytestFlagsArray = [
+    "datashader"
+  ];
+
+  disabledTests = [
+    # Not compatible with current version of bokeh
+    # see: https://github.com/holoviz/datashader/issues/1031
+    "test_interactive_image_update"
+    # Latest dask broken array marshalling
+    # see: https://github.com/holoviz/datashader/issues/1032
+    "test_raster_quadmesh_autorange_reversed"
+  ];
+
+  disabledTestPaths = [
+    # 31/50 tests fail with TypeErrors
+    "datashader/tests/test_datatypes.py"
+  ];
+
+  pythonImportsCheck = [
+    "datashader"
+  ];
+
+  meta = with lib;{
     description = "Data visualization toolchain based on aggregating into a grid";
     homepage = "https://datashader.org";
     license = licenses.bsd3;
-    maintainers = [ maintainers.costrouc ];
+    maintainers = with maintainers; [ costrouc ];
   };
 }

@@ -13,17 +13,28 @@ rec {
     isx86_64       = { cpu = { family = "x86"; bits = 64; }; };
     isPowerPC      = { cpu = cpuTypes.powerpc; };
     isPower        = { cpu = { family = "power"; }; };
+    isPower64      = { cpu = { family = "power"; bits = 64; }; };
     isx86          = { cpu = { family = "x86"; }; };
     isAarch32      = { cpu = { family = "arm"; bits = 32; }; };
     isAarch64      = { cpu = { family = "arm"; bits = 64; }; };
     isMips         = { cpu = { family = "mips"; }; };
+    isMips32       = { cpu = { family = "mips"; bits = 32; }; };
+    isMips64       = { cpu = { family = "mips"; bits = 64; }; };
+    isMips64n32    = { cpu = { family = "mips"; bits = 64; }; abi = { abi = "n32"; }; };
+    isMips64n64    = { cpu = { family = "mips"; bits = 64; }; abi = { abi = "64";  }; };
+    isMmix         = { cpu = { family = "mmix"; }; };
     isRiscV        = { cpu = { family = "riscv"; }; };
+    isRiscV32      = { cpu = { family = "riscv"; bits = 32; }; };
+    isRiscV64      = { cpu = { family = "riscv"; bits = 64; }; };
     isSparc        = { cpu = { family = "sparc"; }; };
     isWasm         = { cpu = { family = "wasm"; }; };
     isMsp430       = { cpu = { family = "msp430"; }; };
     isVc4          = { cpu = { family = "vc4"; }; };
     isAvr          = { cpu = { family = "avr"; }; };
     isAlpha        = { cpu = { family = "alpha"; }; };
+    isOr1k         = { cpu = { family = "or1k"; }; };
+    isM68k         = { cpu = { family = "m68k"; }; };
+    isS390         = { cpu = { family = "s390"; }; };
     isJavaScript   = { cpu = cpuTypes.js; };
 
     is32bit        = { cpu = { bits = 32; }; };
@@ -33,7 +44,7 @@ rec {
 
     isBSD          = { kernel = { families = { inherit (kernelFamilies) bsd; }; }; };
     isDarwin       = { kernel = { families = { inherit (kernelFamilies) darwin; }; }; };
-    isUnix         = [ isBSD isDarwin isLinux isSunOS isCygwin ];
+    isUnix         = [ isBSD isDarwin isLinux isSunOS isCygwin isRedox ];
 
     isMacOS        = { kernel = kernels.macos; };
     isiOS          = { kernel = kernels.ios; };
@@ -46,12 +57,14 @@ rec {
     isCygwin       = { kernel = kernels.windows; abi = abis.cygnus; };
     isMinGW        = { kernel = kernels.windows; abi = abis.gnu; };
     isWasi         = { kernel = kernels.wasi; };
+    isRedox        = { kernel = kernels.redox; };
     isGhcjs        = { kernel = kernels.ghcjs; };
     isGenode       = { kernel = kernels.genode; };
     isNone         = { kernel = kernels.none; };
 
     isAndroid      = [ { abi = abis.android; } { abi = abis.androideabi; } ];
-    isMusl         = with abis; map (a: { abi = a; }) [ musl musleabi musleabihf ];
+    isGnu          = with abis; map (a: { abi = a; }) [ gnuabi64 gnu gnueabi gnueabihf ];
+    isMusl         = with abis; map (a: { abi = a; }) [ musl musleabi musleabihf muslabin32 muslabi64 ];
     isUClibc       = with abis; map (a: { abi = a; }) [ uclibc uclibceabi uclibceabihf ];
 
     isEfi          = map (family: { cpu.family = family; })

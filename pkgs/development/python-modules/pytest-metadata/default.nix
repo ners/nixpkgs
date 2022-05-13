@@ -1,19 +1,26 @@
-{ stdenv, buildPythonPackage, fetchPypi
-, pytest, setuptools_scm }:
+{ lib
+, buildPythonPackage
+, fetchPypi
+, pytest
+, pythonOlder
+, setuptools-scm
+}:
 
 buildPythonPackage rec {
   pname = "pytest-metadata";
-  version = "1.9.0";
+  version = "2.0.1";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1711gippwsl7c1wi8pc2y75xqq5sn1sscpqvrxjvpjm8pcx2138n";
+    sha256 = "sha256-XNtq7qi6kQkYHPnxScijrhQw/35EUGqPhmr4qYykYwE=";
   };
 
-  nativeBuildInputs = [ setuptools_scm ];
-  propagatedBuildInputs = [ pytest ];
+  nativeBuildInputs = [ setuptools-scm ];
+  buildInputs = [ pytest ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Plugin for accessing test session metadata";
     homepage = "https://github.com/pytest-dev/pytest-metadata";
     license = licenses.mpl20;

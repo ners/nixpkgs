@@ -1,27 +1,33 @@
-{ stdenv
-, fetchFromGitHub
-, nixosTests
-, substituteAll
-, autoreconfHook
-, pkgconfig
-, libxml2
-, glib
-, pipewire_0_2
-, fontconfig
-, flatpak
-, gsettings-desktop-schemas
+{ lib
 , acl
+, autoreconfHook
 , dbus
-, fuse
-, libportal
+, fetchFromGitHub
+, fetchpatch
+, flatpak
+, fuse3
+, systemdMinimal
 , geoclue2
+, glib
+, gsettings-desktop-schemas
 , json-glib
+, libportal
+, libxml2
+, nixosTests
+, pipewire
+, gdk-pixbuf
+, librsvg
+, python3
+, pkg-config
+, stdenv
+, substituteAll
 , wrapGAppsHook
+, enableGeoLocation ? true
 }:
 
 stdenv.mkDerivation rec {
   pname = "xdg-desktop-portal";
-  version = "1.6.0";
+  version = "1.14.4";
 
   outputs = [ "out" "installedTests" ];
 
@@ -29,44 +35,44 @@ stdenv.mkDerivation rec {
     owner = "flatpak";
     repo = pname;
     rev = version;
-    sha256 = "0fbsfpilwbv7j6cimsmmz6g0r96bw0ziwyk9z4zg2rd1mfkmmp9a";
+    sha256 = "///X0inMi9Znuhjn9n0HlVLa5/kFWpKorKS8RY9WeYM=";
   };
-
-  patches = [
-    # Hardcode paths used by x-d-p itself.
-    (substituteAll {
-      src = ./fix-paths.patch;
-      inherit flatpak;
-    })
-  ];
 
   nativeBuildInputs = [
     autoreconfHook
-    pkgconfig
     libxml2
+    pkg-config
     wrapGAppsHook
   ];
 
   buildInputs = [
-    glib
-    pipewire_0_2
-    fontconfig
-    flatpak
     acl
     dbus
-    geoclue2
-    fuse
-    libportal
+    flatpak
+    fuse3
+    systemdMinimal # libsystemd
+    glib
     gsettings-desktop-schemas
     json-glib
-  ];
+    libportal
+    pipewire
 
-  # Seems to get stuck after "PASS: test-portals 39 /portal/inhibit/monitor"
-  # TODO: investigate!
-  doCheck = false;
+    # For icon validator
+    gdk-pixbuf
+    librsvg
+
+    # For document-fuse installed test.
+    (python3.withPackages (pp: with pp; [
+      pygobject3
+    ]))
+  ] ++ lib.optionals enableGeoLocation [
+    geoclue2
+  ];
 
   configureFlags = [
     "--enable-installed-tests"
+  ] ++ lib.optionals (!enableGeoLocation) [
+    "--disable-geoclue"
   ];
 
   makeFlags = [
@@ -80,9 +86,9 @@ stdenv.mkDerivation rec {
     };
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Desktop integration portals for sandboxed apps";
-    license = licenses.lgpl21;
+    license = licenses.lgpl2Plus;
     maintainers = with maintainers; [ jtojnar ];
     platforms = platforms.linux;
   };

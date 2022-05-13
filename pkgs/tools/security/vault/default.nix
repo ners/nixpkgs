@@ -1,37 +1,51 @@
-{ stdenv, fetchFromGitHub, buildGoPackage, installShellFiles }:
+{ stdenv, lib, fetchFromGitHub, buildGoModule, installShellFiles, nixosTests
+, makeWrapper
+, gawk
+, glibc
+}:
 
-buildGoPackage rec {
+buildGoModule rec {
   pname = "vault";
-  version = "1.4.1";
+  version = "1.10.2";
 
   src = fetchFromGitHub {
     owner = "hashicorp";
     repo = "vault";
     rev = "v${version}";
-    sha256 = "0fbbvihvlzh95rrk65bwxfcam6y57q0yffq8dzvcbm3i0ap7ndar";
+    sha256 = "sha256-ilyS2M/VRPNz8fW2JFrP09GvX0FlOznqnxJoFvfwUVo=";
   };
 
-  goPackagePath = "github.com/hashicorp/vault";
+  vendorSha256 = "sha256-ZdxpsfTRscgAjrRTq0tXhHe7pGirDgoZ6vlE71oJS9w=";
 
   subPackages = [ "." ];
 
-  nativeBuildInputs = [ installShellFiles ];
+  nativeBuildInputs = [ installShellFiles makeWrapper ];
 
-  buildFlagsArray = [
-    "-tags='vault'"
-    "-ldflags=\"-X github.com/hashicorp/vault/sdk/version.GitCommit='v${version}'\""
+  tags = [ "vault" ];
+
+  ldflags = [
+    "-s" "-w"
+    "-X github.com/hashicorp/vault/sdk/version.GitCommit=${src.rev}"
+    "-X github.com/hashicorp/vault/sdk/version.Version=${version}"
+    "-X github.com/hashicorp/vault/sdk/version.VersionPrerelease="
   ];
 
   postInstall = ''
     echo "complete -C $out/bin/vault vault" > vault.bash
     installShellCompletion vault.bash
+  '' + lib.optionalString stdenv.isLinux ''
+    wrapProgram $out/bin/vault \
+      --prefix PATH ${lib.makeBinPath [ gawk glibc ]}
   '';
 
-  meta = with stdenv.lib; {
+  passthru.tests = { inherit (nixosTests) vault vault-postgresql; };
+
+  meta = with lib; {
     homepage = "https://www.vaultproject.io/";
     description = "A tool for managing secrets";
+    changelog = "https://github.com/hashicorp/vault/blob/v${version}/CHANGELOG.md";
     platforms = platforms.linux ++ platforms.darwin;
     license = licenses.mpl20;
-    maintainers = with maintainers; [ rushmorem lnl7 offline pradeepchhetri ];
+    maintainers = with maintainers; [ rushmorem lnl7 offline pradeepchhetri Chili-Man techknowlogick ];
   };
 }

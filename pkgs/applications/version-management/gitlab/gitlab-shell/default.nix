@@ -1,32 +1,32 @@
-{ stdenv, fetchFromGitLab, buildGoPackage, ruby }:
+{ lib, fetchFromGitLab, buildGoModule, ruby }:
 
-buildGoPackage rec {
+buildGoModule rec {
   pname = "gitlab-shell";
-  version = "11.0.0";
+  version = "13.25.1";
   src = fetchFromGitLab {
     owner = "gitlab-org";
     repo = "gitlab-shell";
     rev = "v${version}";
-    sha256 = "1ca4yil8gp1cm7w939irp1x2y907z2mkdqiap8ik8mqp8svv1m44";
+    sha256 = "sha256-JItk6gfpBNxabI0vsIOHIBhK7L6E1ijPgrnzhQiKPYw=";
   };
 
   buildInputs = [ ruby ];
 
   patches = [ ./remove-hardcoded-locations.patch ];
 
-  goPackagePath = "gitlab.com/gitlab-org/gitlab-shell";
-  goDeps = ./deps.nix;
+  vendorSha256 = "sha256-S7bVQxb+p6o0LPAdx7S6dlsHLecPwMS7myjQZwYhHcU=";
 
   postInstall = ''
-    cp -r "$NIX_BUILD_TOP/go/src/$goPackagePath"/bin/* $out/bin
-    cp -r "$NIX_BUILD_TOP/go/src/$goPackagePath"/{support,VERSION} $out/
+    cp -r "$NIX_BUILD_TOP/source"/bin/* $out/bin
+    cp -r "$NIX_BUILD_TOP/source"/{support,VERSION} $out/
   '';
+  doCheck = false;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "SSH access and repository management app for GitLab";
     homepage = "http://www.gitlab.com/";
     platforms = platforms.linux;
-    maintainers = with maintainers; [ fpletz globin talyz ];
+    maintainers = with maintainers; [ fpletz globin talyz yayayayaka ];
     license = licenses.mit;
   };
 }

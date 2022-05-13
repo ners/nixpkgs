@@ -1,29 +1,27 @@
-{ stdenv, fetchFromGitHub, which
+{ lib
+, stdenv
+, fetchFromGitHub
 , darwin ? null
-, xorgproto ? null
+, fontconfig ? null
+, freetype ? null
 , libX11
 , libXext ? null
 , libXt ? null
-, fontconfig ? null
-, freetype ? null
 , perl ? null  # For building web manuals
+, which
+, xorgproto ? null
 }:
 
 stdenv.mkDerivation {
   pname = "plan9port";
-  version = "2020-01-08";
+  version = "2021-10-19";
 
   src =  fetchFromGitHub {
     owner = "9fans";
     repo = "plan9port";
-    rev = "cc3d97d52a72d7eaceb5b636bcdf81c3e19f7a2e";
-    sha256 = "0gb55kj0gzx1kdhiwcrbr7xcgz1im21dyxgxhfhh6d0q9rw0c17g";
+    rev = "d0d440860f2000a1560abb3f593cdc325fcead4c";
+    hash = "sha256-2aYXqPGwrReyFPrLDtEjgQd/RJjpOfI3ge/tDocYpRQ=";
   };
-
-  patches = [
-    ./darwin-sw_vers.patch
-    ./darwin-cfframework.patch
-  ];
 
   postPatch = ''
     #hardcoded path
@@ -37,7 +35,7 @@ stdenv.mkDerivation {
 
     substituteInPlace bin/9c \
       --replace 'which uniq' '${which}/bin/which uniq'
-  '' + stdenv.lib.optionalString (!stdenv.isDarwin) ''
+  '' + lib.optionalString (!stdenv.isDarwin) ''
     #add missing ctrl+c\z\x\v keybind for non-Darwin
     substituteInPlace src/cmd/acme/text.c \
       --replace "case Kcmd+'c':" "case 0x03: case Kcmd+'c':" \
@@ -48,11 +46,20 @@ stdenv.mkDerivation {
 
   buildInputs = [
     perl
-  ] ++ stdenv.lib.optionals (!stdenv.isDarwin) [
-    xorgproto libX11 libXext libXt fontconfig
-    freetype # fontsrv wants ft2build.h provides system fonts for acme and sam.
-  ] ++ stdenv.lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
-    Carbon Cocoa IOKit Metal QuartzCore
+  ] ++ lib.optionals (!stdenv.isDarwin) [
+    fontconfig
+    freetype # fontsrv wants ft2build.h provides system fonts for acme and sam
+    libX11
+    libXext
+    libXt
+    xorgproto
+  ] ++ lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
+    Carbon
+    Cocoa
+    IOKit
+    Metal
+    QuartzCore
+    darwin.DarwinTools
   ]);
 
   builder = ./builder.sh;
@@ -79,17 +86,25 @@ stdenv.mkDerivation {
     ./test
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://9fans.github.io/plan9port/";
     description = "Plan 9 from User Space";
     longDescription = ''
       Plan 9 from User Space (aka plan9port) is a port of many Plan 9 programs
       from their native Plan 9 environment to Unix-like operating systems.
     '';
-    license = licenses.lpl-102;
-    maintainers = with maintainers; [ AndersonTorres bbarker
-                                      ftrvxmtrx kovirobi ];
-    platforms = remove "aarch64-linux" platforms.unix;
+    license = licenses.mit;
+    maintainers = with maintainers; [
+      AndersonTorres
+      bbarker
+      ehmry
+      ftrvxmtrx
+      kovirobi
+    ];
+    mainProgram = "9";
+    platforms = platforms.unix;
+    # TODO: revisit this when the sdk situation on x86_64-darwin changes
+    broken = stdenv.isDarwin && stdenv.isx86_64;
   };
 }
 # TODO: investigate the mouse chording support patch

@@ -1,28 +1,37 @@
-{ stdenv, lib, python, fetchFromGitHub, installShellFiles }:
+{ stdenv, lib, python3, fetchFromGitHub, installShellFiles }:
 
 let
-  version = "2.4.0";
+  version = "2.34.1";
+  srcName = "azure-cli-${version}-src";
+
   src = fetchFromGitHub {
+    name = srcName;
     owner = "Azure";
     repo = "azure-cli";
     rev = "azure-cli-${version}";
-    sha256 = "1j0h75cxrxa5yrijr7jfip7q5qrddaaqapd90f0qp2r4k9qb0y41";
+    sha256 = "sha256-BEEwxf3UTShKi3K/uBK1yMxyPCvybL/BbKsu8XAwu0M=";
   };
 
   # put packages that needs to be overriden in the py package scope
-  py = import ./python-packages.nix { inherit stdenv python lib src version; };
+  py = import ./python-packages.nix {
+    inherit stdenv lib src version python3;
+  };
 in
 py.pkgs.toPythonApplication (py.pkgs.buildAzureCliPackage {
   pname = "azure-cli";
   inherit version src;
-  disabled = python.isPy27; # namespacing assumes PEP420, which isn't compat with py2
 
-  sourceRoot = "source/src/azure-cli";
+  sourceRoot = "${srcName}/src/azure-cli";
 
   prePatch = ''
     substituteInPlace setup.py \
-      --replace "javaproperties==0.5.1" "javaproperties" \
+      --replace "chardet~=3.0.4" "chardet" \
+      --replace "javaproperties~=0.5.1" "javaproperties" \
       --replace "pytz==2019.1" "pytz" \
+      --replace "scp~=0.13.2" "scp" \
+      --replace "PyNaCl~=1.4.0" "PyNaCl" \
+      --replace "jsondiff~=1.2.0" "jsondiff~=1.2" \
+      --replace "antlr4-python3-runtime~=4.7.2" "antlr4-python3-runtime~=4.7" \
       --replace "mock~=4.0" "mock"
 
     # remove namespace hacks
@@ -36,6 +45,7 @@ py.pkgs.toPythonApplication (py.pkgs.buildAzureCliPackage {
   nativeBuildInputs = [ installShellFiles ];
 
   propagatedBuildInputs = with py.pkgs; [
+    azure-appconfiguration
     azure-batch
     azure-cli-core
     azure-cli-telemetry
@@ -43,7 +53,10 @@ py.pkgs.toPythonApplication (py.pkgs.buildAzureCliPackage {
     azure-datalake-store
     azure-functions-devops-build
     azure-graphrbac
+    azure-identity
     azure-keyvault
+    azure-keyvault-administration
+    azure-keyvault-keys
     azure-loganalytics
     azure-mgmt-advisor
     azure-mgmt-apimanagement
@@ -62,6 +75,7 @@ py.pkgs.toPythonApplication (py.pkgs.buildAzureCliPackage {
     azure-mgmt-containerregistry
     azure-mgmt-containerservice
     azure-mgmt-cosmosdb
+    azure-mgmt-databoxedge
     azure-mgmt-datalake-analytics
     azure-mgmt-datalake-store
     azure-mgmt-datamigration
@@ -70,6 +84,7 @@ py.pkgs.toPythonApplication (py.pkgs.buildAzureCliPackage {
     azure-mgmt-dns
     azure-mgmt-eventgrid
     azure-mgmt-eventhub
+    azure-mgmt-extendedlocation
     azure-mgmt-hdinsight
     azure-mgmt-imagebuilder
     azure-mgmt-iotcentral
@@ -101,34 +116,45 @@ py.pkgs.toPythonApplication (py.pkgs.buildAzureCliPackage {
     azure-mgmt-security
     azure-mgmt-servicebus
     azure-mgmt-servicefabric
+    azure-mgmt-servicefabricmanagedclusters
+    azure-mgmt-servicelinker
     azure-mgmt-signalr
     azure-mgmt-sql
     azure-mgmt-sqlvirtualmachine
     azure-mgmt-storage
+    azure-mgmt-synapse
     azure-mgmt-trafficmanager
     azure-mgmt-web
     azure-multiapi-storage
     azure-storage-blob
+    azure-synapse-accesscontrol
+    azure-synapse-artifacts
+    azure-synapse-managedprivateendpoints
+    azure-synapse-spark
     colorama
     cryptography
+    distro
     Fabric
     jsmin
     knack
     mock
     paramiko
     pydocumentdb
+    PyGithub
     pygments
+    pynacl
     pyopenssl
     pytz
     pyyaml
     psutil
     requests
     scp
+    semver
     six
     sshtunnel
     urllib3
     vsts-cd-manager
-    websocket_client
+    websocket-client
     xmltodict
     javaproperties
     jsondiff
@@ -138,9 +164,9 @@ py.pkgs.toPythonApplication (py.pkgs.buildAzureCliPackage {
     argcomplete
   ];
 
-  # TODO: make shell completion actually work
-  # uses argcomplete, so completion needs PYTHONPATH to work
   postInstall = ''
+    substituteInPlace az.completion.sh \
+      --replace register-python-argcomplete ${py.pkgs.argcomplete}/bin/register-python-argcomplete
     installShellCompletion --bash --name az.bash az.completion.sh
     installShellCompletion --zsh --name _az az.completion.sh
 
@@ -159,9 +185,7 @@ py.pkgs.toPythonApplication (py.pkgs.buildAzureCliPackage {
   # almost the entire test suite requires an azure account setup and networking
   # ensure that the azure namespaces are setup correctly and that azure.cli can be accessed
   checkPhase = ''
-    cd azure # avoid finding local copy
-    ${py.interpreter} -c 'import azure.cli.core; assert "${version}" == azure.cli.core.__version__'
-    HOME=$TMPDIR ${py.interpreter} -m azure.cli --help
+    HOME=$TMPDIR $out/bin/az --help > /dev/null
   '';
 
   # ensure these namespaces are able to be accessed

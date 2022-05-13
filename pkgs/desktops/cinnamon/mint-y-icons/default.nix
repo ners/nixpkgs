@@ -1,6 +1,7 @@
 { fetchFromGitHub
+, lib
 , stdenv
-, gnome3
+, gnome
 , gnome-icon-theme
 , hicolor-icon-theme
 , gtk3
@@ -8,17 +9,18 @@
 
 stdenv.mkDerivation rec {
   pname = "mint-y-icons";
-  version = "unstable-2020-03-21";
+  version = "1.5.8";
 
   src = fetchFromGitHub {
     owner = "linuxmint";
     repo = pname;
-    rev = "f169a617bc344cb0b480b2b72f54cdd06af05255";
-    sha256 = "1c2a79ylk363i982czwwqcwc7cw6dyzlqphcypqm6nll7xlafq8s";
+    # they don't exactly do tags, it's just a named commit
+    rev = "9489bd161e9503d071227dd36057386a34cfc0a3";
+    hash = "sha256-53yTCWNSJjCpVvrxLfsiaCPNDEZWxJgGVAmVNMNql2M=";
   };
 
   propagatedBuildInputs = [
-    gnome3.adwaita-icon-theme
+    gnome.adwaita-icon-theme
     gnome-icon-theme
     hicolor-icon-theme
   ];
@@ -42,11 +44,11 @@ stdenv.mkDerivation rec {
     runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://github.com/linuxmint/mint-y-icons";
     description = "The Mint-Y icon theme";
     license = licenses.gpl3; # from debian/copyright
     platforms = platforms.linux;
-    maintainers = [ maintainers.mkg20001 ];
+    maintainers = teams.cinnamon.members;
   };
 }

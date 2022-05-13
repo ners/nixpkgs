@@ -14,13 +14,13 @@
 
 mkDerivation rec {
   pname = "qps";
-  version = "2.1.0";
+  version = "2.5.0";
 
   src = fetchFromGitHub {
     owner = "lxqt";
     repo = pname;
     rev = version;
-    sha256 = "0jg7sfhdm5xsahzcw8hc2vpp5p3sqzdqwp4my65nj85i7wzgxmva";
+    sha256 = "hkcl9bBQP994TGr4CQQlRZR88IZiRdcbUNOXXf4kXdg=";
   };
 
   nativeBuildInputs = [
@@ -40,10 +40,10 @@ mkDerivation rec {
   passthru.updateScript = lxqtUpdateScript { inherit pname version src; };
 
   meta = with lib; {
-    description = "Qt based process manager";
     homepage = "https://github.com/lxqt/qps";
-    license = licenses.gpl2;
+    description = "Qt based process manager";
+    license = licenses.gpl2Plus;
     platforms = with platforms; linux; # does not build on darwin
-    maintainers = with maintainers; [ romildo ];
+    maintainers = teams.lxqt.members;
   };
 }

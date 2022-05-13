@@ -4,16 +4,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "ripgrep-all";
-  version = "0.9.5";
+  version = "0.9.6";
 
   src = fetchFromGitHub {
     owner = "phiresky";
     repo = pname;
     rev = "v${version}";
-    sha256 = "1nl03i36ilhxn5xbcry6pcr7vbl5667m43flpxaa0lf1wijzn5c2";
+    sha256 = "1wjpgi7m3lxybllkr3r60zaphp02ykq2syq72q9ail2760cjcir6";
   };
 
-  cargoSha256 = "0ndyd8qrvljkk6yvpsp0w17iizxb529sh5q2bj790m32x0gz2w8l";
+  cargoSha256 = "1l71xj5crfb51wfp2bdvdqp1l8kg182n5d6w23lq2wjszaqcj7cw";
   nativeBuildInputs = [ makeWrapper ];
   buildInputs = lib.optional stdenv.isDarwin Security;
 
@@ -46,7 +46,7 @@ rustPlatform.buildRustPackage rec {
 
   doInstallCheck = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, and more";
     longDescription = ''
       Ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, etc.
@@ -58,6 +58,6 @@ rustPlatform.buildRustPackage rec {
     homepage = "https://github.com/phiresky/ripgrep-all";
     license = with licenses; [ agpl3Plus ];
     maintainers = with maintainers; [ zaninime ma27 ];
-    platforms = platforms.all;
+    mainProgram = "rga";
   };
 }

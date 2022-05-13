@@ -1,10 +1,8 @@
-{ stdenv, fetchgit, qt5, zlib, libGLU, libX11 }:
+{ lib, stdenv, mkDerivation, fetchgit, zlib, libGLU, libX11, qtbase, qtwebkit, qtserialport, wrapQtAppsHook }:
 
-let
-  name = "sleepyhead-${version}";
+mkDerivation {
+  pname = "sleepyhead";
   version = "1.0.0-beta-git";
-in stdenv.mkDerivation {
-  inherit name;
 
   src = fetchgit {
     url = "https://gitlab.com/sleepyhead/sleepyhead-code.git";
@@ -13,22 +11,27 @@ in stdenv.mkDerivation {
   };
 
   buildInputs = [
-    qt5.qtbase qt5.qtwebkit qt5.qtserialport
+    qtbase qtwebkit qtserialport
     zlib
     libGLU
     libX11
   ];
 
+  nativeBuildInputs = [ wrapQtAppsHook ];
+
   patchPhase = ''
     patchShebangs configure
   '';
 
-  installPhase = ''
+  installPhase = if stdenv.isDarwin then ''
+    mkdir -p $out/Applications
+    cp -r sleepyhead/SleepyHead.app $out/Applications
+  '' else ''
     mkdir -p $out/bin
     cp sleepyhead/SleepyHead $out/bin
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://sleepyhead.jedimark.net/";
     description = "Review and explore data produced by CPAP and related machines";
     longDescription = ''
@@ -37,7 +40,6 @@ in stdenv.mkDerivation {
     license = licenses.gpl3;
     platforms = platforms.all;
     maintainers = [ maintainers.krav ];
-    broken = true;
   };
 
 }

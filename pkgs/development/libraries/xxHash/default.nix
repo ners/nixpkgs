@@ -1,21 +1,33 @@
-{ stdenv, fetchFromGitHub }:
+{ lib, stdenv, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
   pname = "xxHash";
-  version = "0.7.3";
+  version = "0.8.1";
 
   src = fetchFromGitHub {
     owner = "Cyan4973";
     repo = "xxHash";
     rev = "v${version}";
-    sha256 = "0bin0jch6lbzl4f8y052a7azfgq2n7iwqihzgqmcccv5vq4vcx5a";
+    sha256 = "sha256-2WoYCO6QRHWrbGP2mK04/sLNTyQLOuL3urVktilAwMA=";
   };
+
+  # Upstream Makefile does not anticipate that user may not want to
+  # build .so library.
+  postPatch = lib.optionalString stdenv.hostPlatform.isStatic ''
+    sed -i 's/lib: libxxhash.a libxxhash/lib: libxxhash.a/' Makefile
+    sed -i '/LIBXXH) $(DESTDIR/ d' Makefile
+  '';
 
   outputs = [ "out" "dev" ];
 
-  makeFlags = [ "PREFIX=$(out)" "INCLUDEDIR=$(dev)/include" ];
+  makeFlags = [ "PREFIX=$(dev)" "EXEC_PREFIX=$(out)" ];
 
-  meta = with stdenv.lib; {
+  # pkgs/build-support/setup-hooks/compress-man-pages.sh hook fails
+  # to compress symlinked manpages. Avoid compressing manpages until
+  # it's fixed.
+  dontGzipMan = true;
+
+  meta = with lib; {
     description = "Extremely fast hash algorithm";
     longDescription = ''
       xxHash is an Extremely fast Hash algorithm, running at RAM speed limits.

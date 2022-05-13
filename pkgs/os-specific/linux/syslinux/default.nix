@@ -1,4 +1,4 @@
-{ stdenv, fetchgit, fetchurl, fetchpatch, nasm, perl, python3, libuuid, mtools, makeWrapper }:
+{ lib, stdenv, fetchgit, fetchurl, fetchpatch, nasm, perl, python3, libuuid, mtools, makeWrapper }:
 
 stdenv.mkDerivation {
   pname = "syslinux";
@@ -22,9 +22,15 @@ stdenv.mkDerivation {
       url = mkURL "fa1349f1" "0002-gfxboot-menu-label.patch";
       sha256 = "06ifgzbpjj4picpj17zgprsfi501zf4pp85qjjgn29i5rs291zni";
     })
-    (fetchpatch {
-      url = "https://git.archlinux.org/svntogit/packages.git/plain/trunk/0005-gnu-efi-version-compatibility.patch?h=packages/syslinux";
-      sha256 = "0fbqz56hj8az8ws26m39hyp3l5fvcbzvzdddqz3x6n56hzdpz1p6";
+    (fetchurl {
+      url = "https://raw.githubusercontent.com/archlinux/svntogit-packages/821c3da473d1399d930d5b4a086e46a4179eaa45/trunk/0005-gnu-efi-version-compatibility.patch";
+      name = "0005-gnu-efi-version-compatibility.patch";
+      sha256 = "1mz2idg8cwn0mvd3jixxynhkn7rhmi5fp8cc8zznh5f0ysfra446";
+    })
+    (fetchurl {
+      url = "https://raw.githubusercontent.com/archlinux/svntogit-packages/821c3da473d1399d930d5b4a086e46a4179eaa45/trunk/0025-reproducible-build.patch";
+      name = "0025-reproducible-build.patch";
+      sha256 = "0qk6wc6z3648828y3961pn4pi7xhd20a6fqn6z1mnj22bbvzcxls";
     })
     (fetchurl {
       # mbr.bin: too big (452 > 440)
@@ -41,6 +47,7 @@ stdenv.mkDerivation {
       url = mkURL "26f0e7b2" "0018-prevent-pow-optimization.patch";
       sha256 = "1c8g0jz5yj9a0rsmryx9vdjsw4hw8mjfcg05c9pmyjg85w3dfp3m";
     })
+    ./gcc10.patch
   ];
 
   postPatch = ''
@@ -56,8 +63,8 @@ stdenv.mkDerivation {
     touch gnu-efi/inc/ia32/gnu/stubs-32.h
   '';
 
-  nativeBuildInputs = [ nasm perl python3 ];
-  buildInputs = [ libuuid makeWrapper ];
+  nativeBuildInputs = [ nasm perl python3 makeWrapper ];
+  buildInputs = [ libuuid ];
 
   enableParallelBuilding = false; # Fails very rarely with 'No rule to make target: ...'
   hardeningDisable = [ "pic" "stackprotector" "fortify" ];
@@ -70,8 +77,9 @@ stdenv.mkDerivation {
     "DATADIR=$(out)/share"
     "MANDIR=$(out)/share/man"
     "PERL=perl"
+    "HEXDATE=0x00000000"
   ]
-    ++ stdenv.lib.optionals stdenv.hostPlatform.isi686 [ "bios" "efi32" ];
+    ++ lib.optionals stdenv.hostPlatform.isi686 [ "bios" "efi32" ];
 
   doCheck = false; # fails. some fail in a sandbox, others require qemu
 
@@ -83,7 +91,7 @@ stdenv.mkDerivation {
     rm -rf $out/share/syslinux/com32
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "http://www.syslinux.org/";
     description = "A lightweight bootloader";
     license = licenses.gpl2;

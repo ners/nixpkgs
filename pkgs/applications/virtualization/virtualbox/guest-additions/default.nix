@@ -3,15 +3,11 @@
 
 let
   version = virtualbox.version;
-  xserverVListFunc = builtins.elemAt (stdenv.lib.splitVersion xorg.xorgserver.version);
+  xserverVListFunc = builtins.elemAt (lib.splitVersion xorg.xorgserver.version);
 
-  # Forced to 1.18 in <nixpkgs/nixos/modules/services/x11/xserver.nix>
-  # as it even fails to build otherwise.  Still, override this even here,
-  # in case someone does just a standalone build
-  # (not via videoDrivers = ["vboxvideo"]).
-  # It's likely to work again in some future update.
-  xserverABI = let abi = xserverVListFunc 0 + xserverVListFunc 1;
-    in if abi == "119" || abi == "120" then "118" else abi;
+  # Forced to 1.18; vboxvideo doesn't seem to provide any newer ABI,
+  # and nixpkgs doesn't support older ABIs anymore.
+  xserverABI = "118";
 
   # Specifies how to patch binaries to make sure that libraries loaded using
   # dlopen are found. We grep binaries for specific library names and patch
@@ -19,6 +15,7 @@ let
   dlopenLibs = [
     { name = "libdbus-1.so"; pkg = dbus; }
     { name = "libXfixes.so"; pkg = xorg.libXfixes; }
+    { name = "libXrandr.so"; pkg = xorg.libXrandr; }
   ];
 
 in stdenv.mkDerivation rec {
@@ -26,7 +23,7 @@ in stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "http://download.virtualbox.org/virtualbox/${version}/VBoxGuestAdditions_${version}.iso";
-    sha256 = "bcde4691dea7de93b65a10a43dda2b8f52e570f820992ad281c9bb5c8dede181";
+    sha256 = "d324d2d09d8dd00b1eb3ef3d80ab2e1726998421d13adc0d2a90e05d355aaa5c";
   };
 
   KERN_DIR = "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build";
@@ -161,5 +158,6 @@ in stdenv.mkDerivation rec {
     license = "GPL";
     maintainers = [ lib.maintainers.sander ];
     platforms = lib.platforms.linux;
+    broken = kernel.kernelAtLeast "5.17";
   };
 }

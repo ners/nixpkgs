@@ -1,10 +1,9 @@
 { lib
 , stdenv
 , fetchurl
-, alsaLib
+, alsa-lib
 , autoPatchelfHook
 , binutils-unwrapped
-, gnutar
 , libav_0_8
 , libnotify
 , libresample
@@ -35,12 +34,11 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     autoPatchelfHook
     binutils-unwrapped
-    gnutar
     rpmextract
     unzip
   ];
   buildInputs = [
-    alsaLib
+    alsa-lib
     libav_0_8
     libnotify
     libresample

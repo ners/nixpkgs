@@ -1,14 +1,16 @@
 { config, lib, pkgs, ... }:
+with builtins;
 with lib;
 let
   cfg = config.services.gitlab-runner;
   hasDocker = config.virtualisation.docker.enable;
-  hashedServices = with builtins; (mapAttrs' (name: service: nameValuePair
-    "${name}_${config.networking.hostName}_${
+  hashedServices = mapAttrs'
+    (name: service: nameValuePair
+      "${name}_${config.networking.hostName}_${
         substring 0 12
         (hashString "md5" (unsafeDiscardStringContext (toJSON service)))}"
       service)
-    cfg.services);
+    cfg.services;
   configPath = "$HOME/.gitlab-runner/config.toml";
   configureScript = pkgs.writeShellScriptBin "gitlab-runner-configure" (
     if (cfg.configFile != null) then ''
@@ -34,12 +36,12 @@ let
 
       # register new services
       ${concatStringsSep "\n" (mapAttrsToList (name: service: ''
-        if echo "$NEW_SERVICES" | grep -xq ${name}; then
+        if echo "$NEW_SERVICES" | grep -xq "${name}"; then
           bash -c ${escapeShellArg (concatStringsSep " \\\n " ([
             "set -a && source ${service.registrationConfigFile} &&"
             "gitlab-runner register"
             "--non-interactive"
-            "--name ${name}"
+            (if service.description != null then "--description \"${service.description}\"" else "--name '${name}'")
             "--executor ${service.executor}"
             "--limit ${toString service.limit}"
             "--request-concurrency ${toString service.requestConcurrency}"
@@ -47,6 +49,8 @@ let
           ] ++ service.registrationFlags
             ++ optional (service.buildsDir != null)
             "--builds-dir ${service.buildsDir}"
+            ++ optional (service.cloneUrl != null)
+            "--clone-url ${service.cloneUrl}"
             ++ optional (service.preCloneScript != null)
             "--pre-clone-script ${service.preCloneScript}"
             ++ optional (service.preBuildScript != null)
@@ -62,10 +66,10 @@ let
             ++ optional service.debugTraceDisabled
             "--debug-trace-disabled"
             ++ map (e: "--env ${escapeShellArg e}") (mapAttrsToList (name: value: "${name}=${value}") service.environmentVariables)
-            ++ optionals (service.executor == "docker") (
+            ++ optionals (hasPrefix "docker" service.executor) (
               assert (
                 assertMsg (service.dockerImage != null)
-                  "dockerImage option is required for docker executor (${name})");
+                  "dockerImage option is required for ${service.executor} executor (${name})");
               [ "--docker-image ${service.dockerImage}" ]
               ++ optional service.dockerDisableCache
               "--docker-disable-cache"
@@ -76,7 +80,7 @@ let
               ++ map (v: "--docker-allowed-images ${escapeShellArg v}") service.dockerAllowedImages
               ++ map (v: "--docker-allowed-services ${escapeShellArg v}") service.dockerAllowedServices
             )
-          ))} && sleep 1
+          ))} && sleep 1 || exit 1
         fi
       '') hashedServices)}
 
@@ -89,8 +93,17 @@ let
 
       # update global options
       remarshal --if toml --of json ${configPath} \
-        | jq -cM '.check_interval = ${toString cfg.checkInterval} |
-                  .concurrent = ${toString cfg.concurrent}' \
+        | jq -cM ${escapeShellArg (concatStringsSep " | " [
+            ".check_interval = ${toJSON cfg.checkInterval}"
+            ".concurrent = ${toJSON cfg.concurrent}"
+            ".sentry_dsn = ${toJSON cfg.sentryDSN}"
+            ".listen_address = ${toJSON cfg.prometheusListenAddress}"
+            ".session_server.listen_address = ${toJSON cfg.sessionServer.listenAddress}"
+            ".session_server.advertise_address = ${toJSON cfg.sessionServer.advertiseAddress}"
+            ".session_server.session_timeout = ${toJSON cfg.sessionServer.sessionTimeout}"
+            "del(.[] | nulls)"
+            "del(.session_server[] | nulls)"
+          ])} \
         | remarshal --if json --of toml \
         | sponge ${configPath}
 
@@ -123,7 +136,7 @@ in
     checkInterval = mkOption {
       type = types.int;
       default = 0;
-      example = literalExample "with lib; (length (attrNames config.services.gitlab-runner.services)) * 3";
+      example = literalExpression "with lib; (length (attrNames config.services.gitlab-runner.services)) * 3";
       description = ''
         Defines the interval length, in seconds, between new jobs check.
         The default value is 3;
@@ -134,11 +147,71 @@ in
     concurrent = mkOption {
       type = types.int;
       default = 1;
-      example = literalExample "config.nix.maxJobs";
+      example = literalExpression "config.nix.settings.max-jobs";
       description = ''
         Limits how many jobs globally can be run concurrently.
         The most upper limit of jobs using all defined runners.
         0 does not mean unlimited.
+      '';
+    };
+    sentryDSN = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "https://public:private@host:port/1";
+      description = ''
+        Data Source Name for tracking of all system level errors to Sentry.
+      '';
+    };
+    prometheusListenAddress = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "localhost:8080";
+      description = ''
+        Address (&lt;host&gt;:&lt;port&gt;) on which the Prometheus metrics HTTP server
+        should be listening.
+      '';
+    };
+    sessionServer = mkOption {
+      type = types.submodule {
+        options = {
+          listenAddress = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            example = "0.0.0.0:8093";
+            description = ''
+              An internal URL to be used for the session server.
+            '';
+          };
+          advertiseAddress = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            example = "runner-host-name.tld:8093";
+            description = ''
+              The URL that the Runner will expose to GitLab to be used
+              to access the session server.
+              Fallbacks to <option>listenAddress</option> if not defined.
+            '';
+          };
+          sessionTimeout = mkOption {
+            type = types.int;
+            default = 1800;
+            description = ''
+              How long in seconds the session can stay active after
+              the job completes (which will block the job from finishing).
+            '';
+          };
+        };
+      };
+      default = { };
+      example = literalExpression ''
+        {
+          listenAddress = "0.0.0.0:8093";
+        }
+      '';
+      description = ''
+        The session server allows the user to interact with jobs
+        that the Runner is responsible for. A good example of this is the
+        <link xlink:href="https://docs.gitlab.com/ee/ci/interactive_web_terminal/index.html">interactive web terminal</link>.
       '';
     };
     gracefulTermination = mkOption {
@@ -161,8 +234,8 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.gitlab-runner;
-      defaultText = "pkgs.gitlab-runner";
-      example = literalExample "pkgs.gitlab-runner_1_11";
+      defaultText = literalExpression "pkgs.gitlab-runner";
+      example = literalExpression "pkgs.gitlab-runner_1_11";
       description = "Gitlab Runner package to use.";
     };
     extraPackages = mkOption {
@@ -175,7 +248,7 @@ in
     services = mkOption {
       description = "GitLab Runner services.";
       default = { };
-      example = literalExample ''
+      example = literalExpression ''
         {
           # runner for building in docker via host's nix-daemon
           # nix store will be readable in runner, might be insecure
@@ -266,6 +339,9 @@ in
               <literal>CI_SERVER_URL=&lt;CI server URL&gt;</literal>
 
               <literal>REGISTRATION_TOKEN=&lt;registration secret&gt;</literal>
+
+              WARNING: make sure to use quoted absolute path,
+              or it is going to be copied to Nix Store.
             '';
           };
           registrationFlags = mkOption {
@@ -289,6 +365,13 @@ in
               with <literal>RUNNER_ENV</literal> variable set.
             '';
           };
+          description = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = ''
+              Name/description of the runner.
+            '';
+          };
           executor = mkOption {
             type = types.str;
             default = "docker";
@@ -304,6 +387,14 @@ in
             description = ''
               Absolute path to a directory where builds will be stored
               in context of selected executor (Locally, Docker, SSH).
+            '';
+          };
+          cloneUrl = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            example = "http://gitlab.example.local";
+            description = ''
+              Overwrite the URL for the GitLab instance. Used if the Runner can’t connect to GitLab on the URL GitLab exposes itself.
             '';
           };
           dockerImage = mkOption {
@@ -442,7 +533,10 @@ in
     };
   };
   config = mkIf cfg.enable {
-    warnings = optional (cfg.configFile != null) "services.gitlab-runner.`configFile` is deprecated, please use services.gitlab-runner.`services`.";
+    warnings = (mapAttrsToList
+      (n: v: "services.gitlab-runner.services.${n}.`registrationConfigFile` points to a file in Nix Store. You should use quoted absolute path to prevent this.")
+      (filterAttrs (n: v: isStorePath v.registrationConfigFile) cfg.services))
+    ++ optional (cfg.configFile != null) "services.gitlab-runner.`configFile` is deprecated, please use services.gitlab-runner.`services`.";
     environment.systemPackages = [ cfg.package ];
     systemd.services.gitlab-runner = {
       description = "Gitlab Runner";
@@ -460,7 +554,7 @@ in
         jq
         moreutils
         remarshal
-        utillinux
+        util-linux
         cfg.package
       ] ++ cfg.extraPackages;
       reloadIfChanged = true;

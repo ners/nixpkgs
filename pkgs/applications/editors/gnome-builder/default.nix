@@ -1,31 +1,32 @@
 { stdenv
+, lib
 , ctags
+, cmark
 , appstream-glib
 , desktop-file-utils
-, docbook_xsl
-, docbook_xml_dtd_43
 , fetchurl
 , flatpak
-, gnome3
+, gnome
 , libgit2-glib
+, gi-docgen
 , gobject-introspection
 , glade
 , gspell
-, gtk-doc
 , gtk3
 , gtksourceview4
 , json-glib
 , jsonrpc-glib
 , libdazzle
+, libhandy
 , libpeas
-, libportal
+, libportal-gtk3
 , libxml2
 , meson
 , ninja
 , ostree
 , pcre
 , pcre2
-, pkgconfig
+, pkg-config
 , python3
 , sysprof
 , template-glib
@@ -34,29 +35,28 @@
 , webkitgtk
 , wrapGAppsHook
 , dbus
-, xvfb_run
-, glib
+, xvfb-run
 }:
 
 stdenv.mkDerivation rec {
   pname = "gnome-builder";
-  version = "3.36.0";
+  version = "42.1";
+
+  outputs = [ "out" "devdoc" ];
 
   src = fetchurl {
-    url = "mirror://gnome/sources/${pname}/${stdenv.lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
-    sha256 = "G0nl6DVzb3k6cN2guFIe/XNhFNhKbaq5e8wz62VA0Qo=";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.major version}/${pname}-${version}.tar.xz";
+    sha256 = "XU1RtwKGW0gBcgHwxgfiSifXIDGo9ciNT86HW1VFZwo=";
   };
 
   nativeBuildInputs = [
     appstream-glib
     desktop-file-utils
-    docbook_xsl
-    docbook_xml_dtd_43
+    gi-docgen
     gobject-introspection
-    gtk-doc
     meson
     ninja
-    pkgconfig
+    pkg-config
     python3
     python3.pkgs.wrapPython
     wrapGAppsHook
@@ -64,12 +64,13 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     ctags
+    cmark
     flatpak
-    gnome3.devhelp
+    gnome.devhelp
     glade
     libgit2-glib
     libpeas
-    libportal
+    libportal-gtk3
     vte
     gspell
     gtk3
@@ -77,6 +78,7 @@ stdenv.mkDerivation rec {
     json-glib
     jsonrpc-glib
     libdazzle
+    libhandy
     libxml2
     ostree
     pcre
@@ -90,17 +92,10 @@ stdenv.mkDerivation rec {
 
   checkInputs = [
     dbus
-    xvfb_run
+    xvfb-run
   ];
 
-  outputs = [ "out" "devdoc" ];
-
-  prePatch = ''
-    patchShebangs build-aux/meson/post_install.py
-  '';
-
   mesonFlags = [
-    "-Dpython_libprefix=${python3.libPrefix}"
     "-Ddocs=true"
 
     # Making the build system correctly detect clang header and library paths
@@ -111,9 +106,11 @@ stdenv.mkDerivation rec {
     "-Dnetwork_tests=false"
   ];
 
-  # Some tests fail due to being unable to find the Vte typelib, and I don't
-  # understand why. Somebody should look into fixing this.
   doCheck = true;
+
+  postPatch = ''
+    patchShebangs build-aux/meson/post_install.py
+  '';
 
   checkPhase = ''
     export NO_AT_BRIDGE=1
@@ -136,9 +133,16 @@ stdenv.mkDerivation rec {
     done
   '';
 
-  passthru.updateScript = gnome3.updateScript { packageName = pname; };
+  postFixup = ''
+    # Cannot be in postInstall, otherwise _multioutDocs hook in preFixup will move right back.
+    moveToOutput share/doc/libide "$devdoc"
+  '';
 
-  meta = with stdenv.lib; {
+  passthru.updateScript = gnome.updateScript {
+    packageName = pname;
+  };
+
+  meta = with lib; {
     description = "An IDE for writing GNOME-based software";
     longDescription = ''
       Global search, auto-completion, source code map, documentation

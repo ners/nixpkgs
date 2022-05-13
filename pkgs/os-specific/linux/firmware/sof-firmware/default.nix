@@ -1,28 +1,35 @@
-{ stdenv, fetchurl }:
+{ lib
+, stdenvNoCC
+, fetchFromGitHub
+}:
 
-with stdenv.lib;
-stdenv.mkDerivation rec {
+stdenvNoCC.mkDerivation rec {
   pname = "sof-firmware";
-  version = "1.4.2";
+  version = "2.1.1";
 
-  src = fetchurl {
-    url = "https://www.alsa-project.org/files/pub/misc/sof/${pname}-${version}.tar.bz2";
-    sha256 = "1nkh020gjm45vxd6fvmz63hj16ilff2nl5avvsklajjs6xci1sf5";
+  src = fetchFromGitHub {
+    owner = "thesofproject";
+    repo = "sof-bin";
+    rev = "v${version}";
+    sha256 = "sha256-/OYYfIJWMT+rBBhSCtHaSWvwRMlReEQ5y4FuMfk5zUg=";
   };
 
-  phases = [ "unpackPhase" "installPhase" ];
+  dontFixup = true; # binaries must not be stripped or patchelfed
 
   installPhase = ''
-    rm lib/firmware/intel/{sof/LICENCE,sof-tplg/LICENCE}
-    mkdir $out
-    cp -r lib $out/lib
+    runHook preInstall
+    cd "v${lib.versions.majorMinor version}.x"
+    mkdir -p $out/lib/firmware/intel/
+    cp -a sof-v${version} $out/lib/firmware/intel/sof
+    cp -a sof-tplg-v${version} $out/lib/firmware/intel/sof-tplg
+    runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Sound Open Firmware";
     homepage = "https://www.sofproject.org/";
     license = with licenses; [ bsd3 isc ];
-    maintainers = with maintainers; [ lblasc ];
+    maintainers = with maintainers; [ lblasc evenbrenden hmenke ];
     platforms = with platforms; linux;
   };
 }

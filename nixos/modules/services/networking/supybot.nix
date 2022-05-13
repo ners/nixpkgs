@@ -24,7 +24,7 @@ in
         default = if versionAtLeast config.system.stateVersion "20.09"
           then "/var/lib/supybot"
           else "/home/supybot";
-        defaultText = "/var/lib/supybot";
+        defaultText = literalExpression "/var/lib/supybot";
         description = "The root directory, logs and plugins are stored here";
       };
 
@@ -49,7 +49,7 @@ in
           Please note that you still need to add the plugins to the config
           file (or with <literal>!load</literal>) using their attribute name.
         '';
-        example = literalExample ''
+        example = literalExpression ''
           let
             plugins = pkgs.fetchzip {
               url = "https://github.com/ProgVal/Supybot-plugins/archive/57c2450c.zip";
@@ -64,13 +64,15 @@ in
       };
 
       extraPackages = mkOption {
+        type = types.functionTo (types.listOf types.package);
         default = p: [];
+        defaultText = literalExpression "p: []";
         description = ''
           Extra Python packages available to supybot plugins. The
           value must be a function which receives the attrset defined
           in <varname>python3Packages</varname> as the sole argument.
         '';
-        example = literalExample ''p: [ p.lxml p.requests ]'';
+        example = literalExpression "p: [ p.lxml p.requests ]";
       };
 
     };
@@ -103,6 +105,8 @@ in
         rm -f '${cfg.stateDir}/supybot.cfg.bak'
       '';
 
+      startLimitIntervalSec = 5 * 60;  # 5 min
+      startLimitBurst = 1;
       serviceConfig = {
         ExecStart = "${pyEnv}/bin/supybot ${cfg.stateDir}/supybot.cfg";
         PIDFile = "/run/supybot.pid";
@@ -110,8 +114,6 @@ in
         Group = "supybot";
         UMask = "0007";
         Restart = "on-abort";
-        StartLimitInterval = "5m";
-        StartLimitBurst = "1";
 
         NoNewPrivileges = true;
         PrivateDevices = true;

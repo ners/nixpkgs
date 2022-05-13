@@ -1,16 +1,25 @@
-{ stdenv, fetchurl
+{ lib, stdenv, fetchurl, fetchpatch
 , buildPackages, bison, flex, pkg-config
 , db, iptables, libelf, libmnl
+, gitUpdater
 }:
 
 stdenv.mkDerivation rec {
   pname = "iproute2";
-  version = "5.6.0";
+  version = "5.17.0";
 
   src = fetchurl {
     url = "mirror://kernel/linux/utils/net/${pname}/${pname}-${version}.tar.xz";
-    sha256 = "14j6n1bc09xhq8lxs40vfsx8bb8lx12a07ga4rsxl8vfrqjhwnqv";
+    sha256 = "bjhPG0LHXhqdqsV4Zto33P+QkJC6huslpudk2niTZg4=";
   };
+
+  patches = [
+    # To avoid ./configure failing due to invalid arguments:
+    (fetchpatch { # configure: restore backward compatibility
+      url = "https://git.kernel.org/pub/scm/network/iproute2/iproute2.git/patch/?id=a3272b93725a406bc98b67373da67a4bdf6fcdb0";
+      sha256 = "0hyagh2lf6rrfss4z7ca8q3ydya6gg7vfhh25slhpgcn6lnk0xbv";
+    })
+  ];
 
   preConfigure = ''
     # Don't try to create /var/lib/arpd:
@@ -40,7 +49,14 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  passthru.updateScript = gitUpdater {
+    inherit pname version;
+    # No nicer place to find latest release.
+    url = "https://git.kernel.org/pub/scm/network/iproute2/iproute2.git";
+    rev-prefix = "v";
+  };
+
+  meta = with lib; {
     homepage = "https://wiki.linuxfoundation.org/networking/iproute2";
     description = "A collection of utilities for controlling TCP/IP networking and traffic control in Linux";
     platforms = platforms.linux;

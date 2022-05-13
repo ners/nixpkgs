@@ -1,15 +1,23 @@
-{ stdenv, buildPythonPackage, fetchPypi, substituteAll
-, geos, pytest, cython
+{ lib
+, stdenv
+, buildPythonPackage
+, fetchPypi
+, substituteAll
+, pythonOlder
+, geos
+, pytestCheckHook
+, cython
 , numpy
 }:
 
 buildPythonPackage rec {
   pname = "Shapely";
-  version = "1.7.0";
+  version = "1.8.1.post1";
+  disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "07lmrihj6pa7f99m97hbf2anqlhhwippcdz03bqkyihnlkhry6p2";
+    sha256 = "sha256-k/8G/wX74r6EO5PHsa2CkuVuZlugG0cI91rop1eXLp8=";
   };
 
   nativeBuildInputs = [
@@ -17,31 +25,40 @@ buildPythonPackage rec {
     cython
   ];
 
-  checkInputs = [ pytest ];
+  propagatedBuildInputs = [
+    numpy
+  ];
 
-  propagatedBuildInputs = [ numpy ];
+  checkInputs = [
+    pytestCheckHook
+  ];
 
-  # environment variable used in shapely/_buildcfg.py
+  # Environment variable used in shapely/_buildcfg.py
   GEOS_LIBRARY_PATH = "${geos}/lib/libgeos_c${stdenv.hostPlatform.extensions.sharedLibrary}";
 
   patches = [
+    # Patch to search form GOES .so/.dylib files in a Nix-aware way
     (substituteAll {
       src = ./library-paths.patch;
       libgeos_c = GEOS_LIBRARY_PATH;
-      libc = "${stdenv.cc.libc}/lib/libc${stdenv.hostPlatform.extensions.sharedLibrary}"
-               + stdenv.lib.optionalString (!stdenv.isDarwin) ".6";
+      libc = lib.optionalString (!stdenv.isDarwin) "${stdenv.cc.libc}/lib/libc${stdenv.hostPlatform.extensions.sharedLibrary}.6";
     })
-  ];
+ ];
 
-  # Disable the tests that improperly try to use the built extensions
-  checkPhase = ''
+  preCheck = ''
     rm -r shapely # prevent import of local shapely
-    py.test tests
   '';
 
-  meta = with stdenv.lib; {
+  disabledTests = [
+    "test_collection"
+  ];
+
+  pythonImportsCheck = [ "shapely" ];
+
+  meta = with lib; {
     description = "Geometric objects, predicates, and operations";
-    maintainers = with maintainers; [ knedlsepp ];
     homepage = "https://pypi.python.org/pypi/Shapely/";
+    license = with licenses; [ bsd3 ];
+    maintainers = with maintainers; [ knedlsepp ];
   };
 }

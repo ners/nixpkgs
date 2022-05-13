@@ -1,6 +1,6 @@
-{ stdenv
+{ lib, stdenv
 , fetchFromGitHub
-, pkgconfig
+, pkg-config
 , python3Packages
 , pango
 , librsvg
@@ -15,17 +15,17 @@
 
 stdenv.mkDerivation rec {
   pname = "jgmenu";
-  version = "4.2.0";
+  version = "4.4.0";
 
   src = fetchFromGitHub {
     owner = "johanmalm";
     repo = pname;
     rev = "v${version}";
-    sha256 = "1wcmx2yhm6n54w6nymgb8pgfjv411i3zj1vk79q9vr052y1622z0";
+    sha256 = "sha256-REzrN4tz+cFmKyJeOPOkzjvthsJdY3GButF7RdnzviE=";
   };
 
   nativeBuildInputs = [
-    pkgconfig
+    pkg-config
     makeWrapper
     python3Packages.wrapPython
   ];
@@ -38,7 +38,7 @@ stdenv.mkDerivation rec {
     xorg.libXinerama
     xorg.libXrandr
     python3Packages.python
-  ] ++ stdenv.lib.optionals enableXfcePanelApplet [
+  ] ++ lib.optionals enableXfcePanelApplet [
     gtk3
     xfce.libxfce4util
     xfce.xfce4-panel
@@ -46,7 +46,7 @@ stdenv.mkDerivation rec {
 
   configureFlags = [
   ]
-  ++ stdenv.lib.optionals enableXfcePanelApplet [
+  ++ lib.optionals enableXfcePanelApplet [
     "--with-xfce4-panel-applet"
   ];
 
@@ -57,10 +57,10 @@ stdenv.mkDerivation rec {
     done
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://github.com/johanmalm/jgmenu";
     description = "Small X11 menu intended to be used with openbox and tint2";
-    license = licenses.gpl2;
+    license = licenses.gpl2Plus;
     platforms = platforms.linux;
     maintainers = [ maintainers.romildo ];
   };

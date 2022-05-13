@@ -1,25 +1,37 @@
-{ stdenv, lib, buildGoPackage, fetchFromGitHub, installShellFiles, nixosTests}:
+{ stdenv, lib, buildGoModule, fetchFromGitHub, installShellFiles, makeWrapper
+, nixosTests, rclone }:
 
-buildGoPackage rec {
+buildGoModule rec {
   pname = "restic";
-  version = "0.9.6";
-
-  goPackagePath = "github.com/restic/restic";
+  version = "0.13.0";
 
   src = fetchFromGitHub {
     owner = "restic";
     repo = "restic";
     rev = "v${version}";
-    sha256 = "0lydll93n1lcn1fl669b9cikmzz9d6vfpc8ky3ng5fi8kj3v1dz7";
+    sha256 = "sha256-pbCN262gyS5BSUTN9QU+x2Nnrc8mmCSQH6Inng4OS8c=";
   };
+
+  patches = [
+    # The TestRestoreWithPermissionFailure test fails in Nix’s build sandbox
+    ./0001-Skip-testing-restore-with-permission-failure.patch
+  ];
+
+  vendorSha256 = "sha256-DWfCjGXjZnZa2mXPmXQmvGDtXb0H1wJqCgVsDjdVy9U=";
 
   subPackages = [ "cmd/restic" ];
 
-  nativeBuildInputs = [ installShellFiles ];
+  nativeBuildInputs = [ installShellFiles makeWrapper ];
 
   passthru.tests.restic = nixosTests.restic;
 
-  postInstall = lib.optionalString (stdenv.hostPlatform == stdenv.buildPlatform) ''
+  postPatch = ''
+    rm cmd/restic/integration_fuse_test.go
+  '';
+
+  postInstall = ''
+    wrapProgram $out/bin/restic --prefix PATH : '${rclone}/bin'
+  '' + lib.optionalString (stdenv.hostPlatform == stdenv.buildPlatform) ''
     $out/bin/restic generate \
       --bash-completion restic.bash \
       --zsh-completion restic.zsh \

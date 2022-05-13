@@ -1,40 +1,51 @@
-{ lib, buildGoPackage, fetchFromGitHub, installShellFiles }:
+{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
 
-buildGoPackage rec {
+buildGoModule rec {
   pname = "skaffold";
-  version = "1.8.0";
-  # rev is the ${version} commit, mainly for skaffold version command output
-  rev = "bd280192092e28067f0f52584c8bcb4f4dc480e4";
-
-  goPackagePath = "github.com/GoogleContainerTools/skaffold";
-  subPackages = ["cmd/skaffold"];
-
-  buildFlagsArray = let t = "${goPackagePath}/pkg/skaffold"; in  ''
-    -ldflags=
-      -X ${t}/version.version=v${version}
-      -X ${t}/version.gitCommit=${rev}
-      -X ${t}/version.buildDate=unknown
-  '';
+  version = "1.38.0";
 
   src = fetchFromGitHub {
     owner = "GoogleContainerTools";
     repo = "skaffold";
     rev = "v${version}";
-    sha256 = "0s1j1lij56idl981nq7dnvkil1ki283nfhcfqyl5g00payihlm73";
+    sha256 = "sha256-Sy8DpCZEFps6Z4x57ESofNm2EZsPUCHzLz1icl1MOVE=";
   };
 
+  vendorSha256 = "sha256-RA2KgUjYB3y6sOQdnLSZjr52VosZSaRrVU0BXZvjB1M=";
+
+  subPackages = ["cmd/skaffold"];
+
+  ldflags = let t = "github.com/GoogleContainerTools/skaffold/pkg/skaffold"; in [
+    "-s" "-w"
+    "-X ${t}/version.version=v${version}"
+    "-X ${t}/version.gitCommit=${src.rev}"
+    "-X ${t}/version.buildDate=unknown"
+  ];
+
   nativeBuildInputs = [ installShellFiles ];
+
+  doInstallCheck = true;
+  installCheckPhase = ''
+    $out/bin/skaffold version | grep ${version} > /dev/null
+  '';
+
   postInstall = ''
-    for shell in bash zsh; do
-      $out/bin/skaffold completion $shell > skaffold.$shell
-      installShellCompletion skaffold.$shell
-    done
+    installShellCompletion --cmd skaffold \
+      --bash <($out/bin/skaffold completion bash) \
+      --zsh <($out/bin/skaffold completion zsh)
   '';
 
   meta = with lib; {
-    description = "Easy and Repeatable Kubernetes Development";
     homepage = "https://skaffold.dev/";
+    changelog = "https://github.com/GoogleContainerTools/skaffold/releases/tag/v${version}";
+    description = "Easy and Repeatable Kubernetes Development";
+    longDescription = ''
+      Skaffold is a command line tool that facilitates continuous development for Kubernetes applications.
+      You can iterate on your application source code locally then deploy to local or remote Kubernetes clusters.
+      Skaffold handles the workflow for building, pushing and deploying your application.
+      It also provides building blocks and describe customizations for a CI/CD pipeline.
+    '';
     license = licenses.asl20;
-    maintainers = with maintainers; [ vdemeester ];
+    maintainers = with maintainers; [ vdemeester bryanasdev000];
   };
 }

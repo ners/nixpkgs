@@ -42,8 +42,7 @@ in {
 
       extraConfig = mkOption {
         type = types.lines;
-        default = ''
-        '';
+        default = "";
         description = ''
           Configuration lines appended to the generated connman configuration file.
         '';
@@ -78,10 +77,11 @@ in {
       };
 
       package = mkOption {
-        type = types.path;
+        type = types.package;
         description = "The connman package / build flavor";
         default = connman;
-        example = literalExample "pkgs.connmanFull";
+        defaultText = literalExpression "pkgs.connman";
+        example = literalExpression "pkgs.connmanFull";
       };
 
     };
@@ -127,7 +127,7 @@ in {
       description = "ConnMan VPN service";
       wantedBy = [ "multi-user.target" ];
       after = [ "syslog.target" ];
-      before = [ "connman" ];
+      before = [ "connman.service" ];
       serviceConfig = {
         Type = "dbus";
         BusName = "net.connman.vpn";
@@ -140,7 +140,7 @@ in {
       description = "D-BUS Service";
       serviceConfig = {
         Name = "net.connman.vpn";
-        before = [ "connman" ];
+        before = [ "connman.service" ];
         ExecStart = "${cfg.package}/sbin/connman-vpnd -n";
         User = "root";
         SystemdService = "connman-vpn.service";
@@ -151,6 +151,7 @@ in {
       useDHCP = false;
       wireless = {
         enable = mkIf (!enableIwd) true;
+        dbusControlled = true;
         iwd = mkIf enableIwd {
           enable = true;
         };

@@ -1,11 +1,12 @@
-{ stdenv, makeWrapper, requireFile, gcc, unzip }:
-with stdenv.lib;
+{ lib, stdenv, makeWrapper, requireFile, gcc, unzip }:
+with lib;
 
 # v2.1: last version with NHM/WSM arch support
-stdenv.mkDerivation {
-  name = "iaca-2.1";
+stdenv.mkDerivation rec {
+  pname = "iaca";
+  version = "2.1";
   src = requireFile {
-    name = "iaca-version-2.1-lin64.zip";
+    name = "iaca-version-${version}-lin64.zip";
     sha256 = "11s1134ijf66wrc77ksky9mnb0lq6ml6fzmr86a6p6r5xclzay2m";
     url = "https://software.intel.com/en-us/articles/intel-architecture-code-analyzer-download";
   };
@@ -22,7 +23,7 @@ stdenv.mkDerivation {
         --set-rpath $out/lib:"${libPath}" \
         $out/bin/iaca
   '';
-  postFixup = ''wrapProgram $out/bin/iaca --set LD_LIBRARY_PATH $out/lib'';
+  postFixup = "wrapProgram $out/bin/iaca --set LD_LIBRARY_PATH $out/lib";
   meta = {
     description = "Intel Architecture Code Analyzer";
     homepage = "https://software.intel.com/en-us/articles/intel-architecture-code-analyzer/";

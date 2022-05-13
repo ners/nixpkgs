@@ -55,21 +55,30 @@ in
     (mkIf enableBtrfs {
       system.fsPackages = [ pkgs.btrfs-progs ];
 
-      boot.initrd.kernelModules = mkIf inInitrd [ "btrfs" "crc32c" ];
+      boot.initrd.kernelModules = mkIf inInitrd [ "btrfs" ];
+      boot.initrd.availableKernelModules = mkIf inInitrd (
+        [ "crc32c" ]
+        ++ optionals (config.boot.kernelPackages.kernel.kernelAtLeast "5.5") [
+          # Needed for mounting filesystems with new checksums
+          "xxhash_generic"
+          "blake2b_generic"
+          "sha256_generic" # Should be baked into our kernel, just to be sure
+        ]
+      );
 
-      boot.initrd.extraUtilsCommands = mkIf inInitrd
+      boot.initrd.extraUtilsCommands = mkIf (inInitrd && !config.boot.initrd.systemd.enable)
       ''
         copy_bin_and_libs ${pkgs.btrfs-progs}/bin/btrfs
         ln -sv btrfs $out/bin/btrfsck
         ln -sv btrfsck $out/bin/fsck.btrfs
       '';
 
-      boot.initrd.extraUtilsCommandsTest = mkIf inInitrd
+      boot.initrd.extraUtilsCommandsTest = mkIf (inInitrd && !config.boot.initrd.systemd.enable)
       ''
         $out/bin/btrfs --version
       '';
 
-      boot.initrd.postDeviceCommands = mkIf inInitrd
+      boot.initrd.postDeviceCommands = mkIf (inInitrd && !config.boot.initrd.systemd.enable)
       ''
         btrfs device scan
       '';
@@ -128,7 +137,10 @@ in
             Nice = 19;
             IOSchedulingClass = "idle";
             ExecStart = "${pkgs.btrfs-progs}/bin/btrfs scrub start -B ${fs}";
-            ExecStop  = "${pkgs.btrfs-progs}/bin/btrfs scrub cancel ${fs}";
+            # if the service is stopped before scrub end, cancel it
+            ExecStop  = pkgs.writeShellScript "btrfs-scrub-maybe-cancel" ''
+              (${pkgs.btrfs-progs}/bin/btrfs scrub status ${fs} | ${pkgs.gnugrep}/bin/grep finished) || ${pkgs.btrfs-progs}/bin/btrfs scrub cancel ${fs}
+            '';
           };
         };
       in listToAttrs (map scrubService cfgScrub.fileSystems);

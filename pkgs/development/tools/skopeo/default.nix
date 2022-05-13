@@ -1,7 +1,7 @@
-{ stdenv
+{ lib
+, stdenv
 , buildGoModule
 , fetchFromGitHub
-, runCommand
 , gpgme
 , lvm2
 , btrfs-progs
@@ -10,56 +10,55 @@
 , installShellFiles
 , makeWrapper
 , fuse-overlayfs
+, dockerTools
 }:
 
-let
-  version = "0.2.0";
+buildGoModule rec {
+  pname = "skopeo";
+  version = "1.8.0";
 
   src = fetchFromGitHub {
     rev = "v${version}";
     owner = "containers";
     repo = "skopeo";
-    sha256 = "09zqzrw6f1s6kaknnj3hra3xz4nq6y86vmw5vk8p4f6g7cwakg1x";
+    sha256 = "sha256-LZN8v3pk5OvRdnhAHOa76QASRL8IPbMIFoH6ERu5r6E=";
   };
-
-  defaultPolicyFile = runCommand "skopeo-default-policy.json" {} "cp ${src}/default-policy.json $out";
-
-  vendorPath = "github.com/containers/skopeo/vendor/github.com/containers/image/v5";
-
-in
-buildGoModule {
-  pname = "skopeo";
-  inherit version;
-  inherit src;
 
   outputs = [ "out" "man" ];
 
   vendorSha256 = null;
 
-  excludedPackages = [ "integration" ];
+  doCheck = false;
 
   nativeBuildInputs = [ pkg-config go-md2man installShellFiles makeWrapper ];
 
   buildInputs = [ gpgme ]
-  ++ stdenv.lib.optionals stdenv.isLinux [ lvm2 btrfs-progs ];
+  ++ lib.optionals stdenv.isLinux [ lvm2 btrfs-progs ];
 
-  buildFlagsArray = ''
-    -ldflags=
-    -X ${vendorPath}/signature.systemDefaultPolicyPath=${defaultPolicyFile}
-    -X ${vendorPath}/internal/tmpdir.unixTempDirForBigFiles=/tmp
+  buildPhase = ''
+    runHook preBuild
+    patchShebangs .
+    make bin/skopeo docs
+    runHook postBuild
   '';
 
-  postBuild = ''
-    make install-docs MANINSTALLDIR="$man/share/man"
+  installPhase = ''
+    runHook preInstall
+    install -Dm755 bin/skopeo -t $out/bin
+    installManPage docs/*.[1-9]
     installShellCompletion --bash completions/bash/skopeo
-  '';
-
-  postInstall = stdenv.lib.optionals stdenv.isLinux ''
+  '' + lib.optionalString stdenv.isLinux ''
     wrapProgram $out/bin/skopeo \
-      --prefix PATH : ${stdenv.lib.makeBinPath [ fuse-overlayfs ]}
+      --prefix PATH : ${lib.makeBinPath [ fuse-overlayfs ]}
+  '' + ''
+    runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  passthru.tests = {
+    inherit (dockerTools.examples) testNixFromDockerHub;
+  };
+
+  meta = with lib; {
     description = "A command line utility for various operations on container images and image repositories";
     homepage = "https://github.com/containers/skopeo";
     maintainers = with maintainers; [ lewo ] ++ teams.podman.members;

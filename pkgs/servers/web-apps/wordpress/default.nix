@@ -1,12 +1,12 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchurl, nixosTests }:
 
 stdenv.mkDerivation rec {
   pname = "wordpress";
-  version = "5.4.1";
+  version = "5.9.3";
 
   src = fetchurl {
     url = "https://wordpress.org/${pname}-${version}.tar.gz";
-    sha256 = "0i9ndfhm9iwilqwbqs3dngmzzjmazw4vwbyccjabs3zmzliis6vv";
+    sha256 = "sha256-cMvqXXLez7Ep9MyObD0BdepkvsaOl5YbbbA3cnilKlY=";
   };
 
   installPhase = ''
@@ -14,7 +14,11 @@ stdenv.mkDerivation rec {
     cp -r . $out/share/wordpress
   '';
 
-  meta = with stdenv.lib; {
+  passthru.tests = {
+    inherit (nixosTests) wordpress;
+  };
+
+  meta = with lib; {
     homepage = "https://wordpress.org";
     description = "WordPress is open source software you can use to create a beautiful website, blog, or app";
     license = [ licenses.gpl2 ];

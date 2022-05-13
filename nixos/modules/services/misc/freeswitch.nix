@@ -32,8 +32,8 @@ in {
       configTemplate = mkOption {
         type = types.path;
         default = "${config.services.freeswitch.package}/share/freeswitch/conf/vanilla";
-        defaultText = literalExample "\${config.services.freeswitch.package}/share/freeswitch/conf/vanilla";
-        example = literalExample "\${config.services.freeswitch.package}/share/freeswitch/conf/minimal";
+        defaultText = literalExpression ''"''${config.services.freeswitch.package}/share/freeswitch/conf/vanilla"'';
+        example = literalExpression ''"''${config.services.freeswitch.package}/share/freeswitch/conf/minimal"'';
         description = ''
           Configuration template to use.
           See available templates in <link xlink:href="https://github.com/signalwire/freeswitch/tree/master/conf">FreeSWITCH repository</link>.
@@ -43,7 +43,7 @@ in {
       configDir = mkOption {
         type = with types; attrsOf path;
         default = { };
-        example = literalExample ''
+        example = literalExpression ''
           {
             "freeswitch.xml" = ./freeswitch.xml;
             "dialplan/default.xml" = pkgs.writeText "dialplan-default.xml" '''
@@ -61,8 +61,7 @@ in {
       package = mkOption {
         type = types.package;
         default = pkgs.freeswitch;
-        defaultText = literalExample "pkgs.freeswitch";
-        example = literalExample "pkgs.freeswitch";
+        defaultText = literalExpression "pkgs.freeswitch";
         description = ''
           FreeSWITCH package.
         '';
@@ -78,7 +77,7 @@ in {
       wantedBy = [ "multi-user.target" ];
       restartTriggers = [ configDirectory ];
       serviceConfig = {
-        ExecStart = "${pkgs.systemd}/bin/systemctl try-reload-or-restart freeswitch.service";
+        ExecStart = "/run/current-system/systemd/bin/systemctl try-reload-or-restart freeswitch.service";
         RemainAfterExit = true;
         Type = "oneshot";
       };
@@ -95,9 +94,11 @@ in {
           -conf ${configPath} \\
           -base /var/lib/freeswitch";
         ExecReload = "${pkg}/bin/fs_cli -x reloadxml";
-        Restart = "always";
+        Restart = "on-failure";
         RestartSec = "5s";
+        CPUSchedulingPolicy = "fifo";
       };
     };
+    environment.systemPackages = [ pkg ];
   };
 }

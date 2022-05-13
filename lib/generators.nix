@@ -10,7 +10,7 @@
  * are mostly generators themselves, called with
  * their respective default values; they can be reused.
  *
- * Tests can be found in ./tests.nix
+ * Tests can be found in ./tests/misc.nix
  * Documentation in the manual, #sec-generators
  */
 { lib }:
@@ -35,6 +35,8 @@ rec {
           ("generators.mkValueStringDefault: " +
            "${t} not supported: ${toPretty {} v}");
     in   if isInt      v then toString v
+    # convert derivations to store paths
+    else if lib.isDerivation v then toString v
     # we default to not quoting strings
     else if isString   v then v
     # isString returns "1", which is not a good default
@@ -48,8 +50,10 @@ rec {
     else if isAttrs    v then err "attrsets" v
     # functions can’t be printed of course
     else if isFunction v then err "functions" v
-    # let’s not talk about floats. There is no sensible `toString` for them.
-    else if isFloat    v then err "floats" v
+    # Floats currently can't be converted to precise strings,
+    # condition warning on nix version once this isn't a problem anymore
+    # See https://github.com/NixOS/nix/pull/3480
+    else if isFloat    v then libStr.floatToString v
     else err "this value is" (toString v);
 
 
@@ -104,7 +108,7 @@ rec {
    * The mk* configuration attributes can generically change
    * the way sections and key-value strings are generated.
    *
-   * For more examples see the test cases in ./tests.nix.
+   * For more examples see the test cases in ./tests/misc.nix.
    */
   toINI = {
     # apply transformations (e.g. escapes) to section names
@@ -125,6 +129,51 @@ rec {
     in
       # map input to ini sections
       mapAttrsToStringsSep "\n" mkSection attrsOfAttrs;
+
+  /* Generate an INI-style config file from an attrset
+   * specifying the global section (no header), and an
+   * attrset of sections to an attrset of key-value pairs.
+   *
+   * generators.toINIWithGlobalSection {} {
+   *   globalSection = {
+   *     someGlobalKey = "hi";
+   *   };
+   *   sections = {
+   *     foo = { hi = "${pkgs.hello}"; ciao = "bar"; };
+   *     baz = { "also, integers" = 42; };
+   * }
+   *
+   *> someGlobalKey=hi
+   *>
+   *> [baz]
+   *> also, integers=42
+   *>
+   *> [foo]
+   *> ciao=bar
+   *> hi=/nix/store/y93qql1p5ggfnaqjjqhxcw0vqw95rlz0-hello-2.10
+   *
+   * The mk* configuration attributes can generically change
+   * the way sections and key-value strings are generated.
+   *
+   * For more examples see the test cases in ./tests/misc.nix.
+   *
+   * If you don’t need a global section, you can also use
+   * `generators.toINI` directly, which only takes
+   * the part in `sections`.
+   */
+  toINIWithGlobalSection = {
+    # apply transformations (e.g. escapes) to section names
+    mkSectionName ? (name: libStr.escape [ "[" "]" ] name),
+    # format a setting line from key and value
+    mkKeyValue    ? mkKeyValueDefault {} "=",
+    # allow lists as values for duplicate keys
+    listsAsDuplicateKeys ? false
+  }: { globalSection, sections }:
+    ( if globalSection == {}
+      then ""
+      else (toKeyValue { inherit mkKeyValue listsAsDuplicateKeys; } globalSection)
+           + "\n")
+    + (toINI { inherit mkSectionName mkKeyValue listsAsDuplicateKeys; } sections);
 
   /* Generate a git-config file from an attrset.
    *
@@ -167,7 +216,7 @@ rec {
       # converts { a.b.c = 5; } to { "a.b".c = 5; } for toINI
       gitFlattenAttrs = let
         recurse = path: value:
-          if isAttrs value then
+          if isAttrs value && !lib.isDerivation value then
             lib.mapAttrsToList (name: value: recurse ([ name ] ++ path) value) value
           else if length path > 1 then {
             ${concatStringsSep "." (lib.reverseList (tail path))}.${head path} = value;
@@ -193,6 +242,30 @@ rec {
     */
   toYAML = {}@args: toJSON args;
 
+  withRecursion =
+    args@{
+      /* If this option is not null, the given value will stop evaluating at a certain depth */
+      depthLimit
+      /* If this option is true, an error will be thrown, if a certain given depth is exceeded */
+    , throwOnDepthLimit ? true
+    }:
+      assert builtins.isInt depthLimit;
+      let
+        transform = depth:
+          if depthLimit != null && depth > depthLimit then
+            if throwOnDepthLimit
+              then throw "Exceeded maximum eval-depth limit of ${toString depthLimit} while trying to evaluate with `generators.withRecursion'!"
+              else const "<unevaluated>"
+          else id;
+        mapAny = with builtins; depth: v:
+          let
+            evalNext = x: mapAny (depth + 1) (transform (depth + 1) x);
+          in
+            if isAttrs v then mapAttrs (const evalNext) v
+            else if isList v then map evalNext v
+            else transform (depth + 1) v;
+      in
+        mapAny 0;
 
   /* Pretty print a value, akin to `builtins.trace`.
     * Should probably be a builtin as well.
@@ -201,40 +274,60 @@ rec {
     /* If this option is true, attrsets like { __pretty = fn; val = …; }
        will use fn to convert val to a pretty printed representation.
        (This means fn is type Val -> String.) */
-    allowPrettyValues ? false
-  }@args: v: with builtins;
+    allowPrettyValues ? false,
+    /* If this option is true, the output is indented with newlines for attribute sets and lists */
+    multiline ? true
+  }@args:
+    let
+    go = indent: v: with builtins;
     let     isPath   = v: typeOf v == "path";
+            introSpace = if multiline then "\n${indent}  " else " ";
+            outroSpace = if multiline then "\n${indent}" else " ";
     in if   isInt      v then toString v
     else if isFloat    v then "~${toString v}"
-    else if isString   v then ''"${libStr.escape [''"''] v}"''
+    else if isString   v then
+      let
+        # Separate a string into its lines
+        newlineSplits = filter (v: ! isList v) (builtins.split "\n" v);
+        # For a '' string terminated by a \n, which happens when the closing '' is on a new line
+        multilineResult = "''" + introSpace + concatStringsSep introSpace (lib.init newlineSplits) + outroSpace + "''";
+        # For a '' string not terminated by a \n, which happens when the closing '' is not on a new line
+        multilineResult' = "''" + introSpace + concatStringsSep introSpace newlineSplits + "''";
+        # For single lines, replace all newlines with their escaped representation
+        singlelineResult = "\"" + libStr.escape [ "\"" ] (concatStringsSep "\\n" newlineSplits) + "\"";
+      in if multiline && length newlineSplits > 1 then
+        if lib.last newlineSplits == "" then multilineResult else multilineResult'
+      else singlelineResult
     else if true  ==   v then "true"
     else if false ==   v then "false"
     else if null  ==   v then "null"
     else if isPath     v then toString v
-    else if isList     v then "[ "
-        + libStr.concatMapStringsSep " " (toPretty args) v
-      + " ]"
+    else if isList     v then
+      if v == [] then "[ ]"
+      else "[" + introSpace
+        + libStr.concatMapStringsSep introSpace (go (indent + "  ")) v
+        + outroSpace + "]"
+    else if isFunction v then
+      let fna = lib.functionArgs v;
+          showFnas = concatStringsSep ", " (libAttr.mapAttrsToList
+                       (name: hasDefVal: if hasDefVal then name + "?" else name)
+                       fna);
+      in if fna == {}    then "<function>"
+                         else "<function, args: {${showFnas}}>"
     else if isAttrs    v then
       # apply pretty values if allowed
       if attrNames v == [ "__pretty" "val" ] && allowPrettyValues
          then v.__pretty v.val
-      # TODO: there is probably a better representation?
+      else if v == {} then "{ }"
       else if v ? type && v.type == "derivation" then
-        "<δ:${v.name}>"
-        # "<δ:${concatStringsSep "," (builtins.attrNames v)}>"
-      else "{ "
-          + libStr.concatStringsSep " " (libAttr.mapAttrsToList
+        "<derivation ${v.drvPath or "???"}>"
+      else "{" + introSpace
+          + libStr.concatStringsSep introSpace (libAttr.mapAttrsToList
               (name: value:
-                "${toPretty args name} = ${toPretty args value};") v)
-        + " }"
-    else if isFunction v then
-      let fna = lib.functionArgs v;
-          showFnas = concatStringsSep "," (libAttr.mapAttrsToList
-                       (name: hasDefVal: if hasDefVal then "(${name})" else name)
-                       fna);
-      in if fna == {}    then "<λ>"
-                         else "<λ:{${showFnas}}>"
+                "${libStr.escapeNixIdentifier name} = ${go (indent + "  ") value};") v)
+        + outroSpace + "}"
     else abort "generators.toPretty: should never happen (v = ${v})";
+  in go "";
 
   # PLIST handling
   toPlist = {}: v: let
@@ -286,4 +379,28 @@ rec {
 ${expr "" v}
 </plist>'';
 
+  /* Translate a simple Nix expression to Dhall notation.
+   * Note that integers are translated to Integer and never
+   * the Natural type.
+  */
+  toDhall = { }@args: v:
+    with builtins;
+    let concatItems = lib.strings.concatStringsSep ", ";
+    in if isAttrs v then
+      "{ ${
+        concatItems (lib.attrsets.mapAttrsToList
+          (key: value: "${key} = ${toDhall args value}") v)
+      } }"
+    else if isList v then
+      "[ ${concatItems (map (toDhall args) v)} ]"
+    else if isInt v then
+      "${if v < 0 then "" else "+"}${toString v}"
+    else if isBool v then
+      (if v then "True" else "False")
+    else if isFunction v then
+      abort "generators.toDhall: cannot convert a function to Dhall"
+    else if isNull v then
+      abort "generators.toDhall: cannot convert a null to Dhall"
+    else
+      builtins.toJSON v;
 }

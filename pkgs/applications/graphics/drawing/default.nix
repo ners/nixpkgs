@@ -1,8 +1,9 @@
 { lib
 , fetchFromGitHub
+, fetchpatch
 , meson
 , ninja
-, pkgconfig
+, pkg-config
 , python3
 , gtk3
 , appstream-glib
@@ -13,20 +14,31 @@
 , gdk-pixbuf
 , pango
 , gettext
+, itstool
 }:
 
 python3.pkgs.buildPythonApplication rec {
   pname = "drawing";
-  version = "0.4.13";
+  version = "1.0.0";
 
   format = "other";
-  
+
   src = fetchFromGitHub {
     owner = "maoschanz";
     repo = pname;
     rev = version;
-    sha256 = "0mj2nmfrckv89srgkn16fnbrb35f5a655ak8bb3rd9na3hd5bq53";
+    sha256 = "sha256-qNaljtuA5E/QaLJ9QILPRQCqOvKmX4ZGq/0z5unA8KA=";
   };
+
+  patches = [
+    # Fix build with meson 0.61, can be removed on next update.
+    # https://github.com/NixOS/nixpkgs/issues/167584
+    (fetchpatch {
+      url = "https://github.com/maoschanz/drawing/commit/6dd271089af76b69322500778e3ad6615a117dcc.patch";
+      sha256 = "sha256-4pKWm3LYstVxZ4+gGsZDfM4K+7WBY8EYjylzc/CQZmo=";
+      includes = [ "data/meson.build" "help/meson.build" ];
+    })
+  ];
 
   nativeBuildInputs = [
     appstream-glib
@@ -34,10 +46,11 @@ python3.pkgs.buildPythonApplication rec {
     gobject-introspection
     meson
     ninja
-    pkgconfig
+    pkg-config
     wrapGAppsHook
     glib
     gettext
+    itstool
   ];
 
   buildInputs = [

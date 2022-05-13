@@ -1,21 +1,21 @@
-{ stdenv, fetchurl, pkgconfig
+{ lib, stdenv, fetchurl, pkg-config
 , freetype, fribidi
 , libSM, libICE, libXt, libXaw, libXmu
 , libXext, libXft, libXpm, libXrandr
 , libXrender, xorgproto, libXinerama }:
 
-with stdenv.lib;
+with lib;
 stdenv.mkDerivation rec {
 
   pname = "oroborus";
   version = "2.0.20";
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ freetype fribidi libSM libICE libXt libXaw libXmu libXext
                   libXft libXpm libXrandr libXrender xorgproto libXinerama ];
 
   src = fetchurl {
-    url = "http://ftp.debian.org/debian/pool/main/o/oroborus/oroborus_${version}.tar.gz";
+    url = "mirror://debian/pool/main/o/oroborus/oroborus_${version}.tar.gz";
     sha256 = "12bvk8x8rfnymbfbwmdcrd9g8m1zxbcq7rgvfdkjr0gnpi0aa82j";
   };
 

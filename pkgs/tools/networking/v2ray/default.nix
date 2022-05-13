@@ -1,36 +1,69 @@
-{ callPackage, fetchFromGitHub, fetchurl
-, assetOverrides ? {}
-, ... } @ args:
+{ lib, fetchFromGitHub, fetchurl, symlinkJoin, buildGoModule, runCommand, makeWrapper, nixosTests
+, v2ray-geoip, v2ray-domain-list-community, assets ? [ v2ray-geoip v2ray-domain-list-community ]
+}:
 
-callPackage ./generic.nix (rec {
-  version = "4.23.0";
+let
+  version = "4.44.0";
 
   src = fetchFromGitHub {
-    owner = "v2ray";
+    owner = "v2fly";
     repo = "v2ray-core";
     rev = "v${version}";
-    sha256 = "0if53d1blj1wf572z21dsywx6czbmhs5dpccx5z1knjhh2xgg9lm";
+    sha256 = "1yk02n2lllbcwqkz4f3l3d2df1w3m768zxvdawgmafjgmbqf0gjf";
   };
 
-  assets = {
-    # MIT licensed
-    "geoip.dat" = let
-      geoipRev = "202003180002";
-      geoipSha256 = "08d383phc5qk7glq25nkf1g8za38415x2952phy525ail88afpwl";
-    in fetchurl {
-      url = "https://github.com/v2ray/geoip/releases/download/${geoipRev}/geoip.dat";
-      sha256 = geoipSha256;
+  vendorSha256 = "sha256-kTwISKPIFpb/OPh9rIzLH8a6mqpyDBJo2stSu5bc02Q=";
+
+  assetsDrv = symlinkJoin {
+    name = "v2ray-assets";
+    paths = assets;
+  };
+
+  core = buildGoModule rec {
+    pname = "v2ray-core";
+    inherit version src;
+
+    inherit vendorSha256;
+
+    doCheck = false;
+
+    buildPhase = ''
+      buildFlagsArray=(-v -p $NIX_BUILD_CORES -ldflags="-s -w")
+      runHook preBuild
+      go build "''${buildFlagsArray[@]}" -o v2ray ./main
+      go build "''${buildFlagsArray[@]}" -o v2ctl -tags confonly ./infra/control/main
+      runHook postBuild
+    '';
+
+    installPhase = ''
+      install -Dm755 v2ray v2ctl -t $out/bin
+    '';
+
+    meta = {
+      homepage = "https://www.v2fly.org/en_US/";
+      description = "A platform for building proxies to bypass network restrictions";
+      license = with lib.licenses; [ mit ];
+      maintainers = with lib.maintainers; [ servalcatty ];
     };
+  };
 
-    # MIT licensed
-    "geosite.dat" = let
-      geositeRev = "202003221514";
-      geositeSha256 = "1d4gv6714m97i57srrzybnmc4322qv5lypkqbmhcxb8bi4ljpf1m";
-    in fetchurl {
-      url = "https://github.com/v2ray/domain-list-community/releases/download/${geositeRev}/dlc.dat";
-      sha256 = geositeSha256;
+in runCommand "v2ray-${version}" {
+  inherit src version;
+  inherit (core) meta;
+
+  nativeBuildInputs = [ makeWrapper ];
+
+  passthru = {
+    inherit core;
+    updateScript = ./update.sh;
+    tests = {
+      simple-vmess-proxy-test = nixosTests.v2ray;
     };
+  };
 
-  } // assetOverrides;
-
-} // args)
+} ''
+  for file in ${core}/bin/*; do
+    makeWrapper "$file" "$out/bin/$(basename "$file")" \
+      --set-default V2RAY_LOCATION_ASSET ${assetsDrv}/share/v2ray
+  done
+''

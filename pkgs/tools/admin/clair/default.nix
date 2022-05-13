@@ -2,16 +2,16 @@
 
 buildGoModule rec {
   pname = "clair";
-  version = "2.1.2";
+  version = "4.3.6";
 
   src = fetchFromGitHub {
     owner = "quay";
     repo = pname;
     rev = "v${version}";
-    sha256 = "14dh9iv2g138rivvfk135m3l90kk6c1ln1iqxhbi7s99h1jixbqw";
+    sha256 = "sha256-yKs/TPSu3WD34Z9fAys7ItWWcSKiUXhVWAqQXMnOrEw=";
   };
 
-  vendorSha256 = "0x31n50vd8660z816as6kms5dkv87b0mhblccpkvd9cbvcv2n37a";
+  vendorSha256 = "sha256-C3xnBANsymSgI7l446CjJzEMY1gURGTxDNBBjNjHmaE=";
 
   nativeBuildInputs = [ makeWrapper ];
 
@@ -23,6 +23,7 @@ buildGoModule rec {
   meta = with lib; {
     description = "Vulnerability Static Analysis for Containers";
     homepage = "https://github.com/quay/clair";
+    changelog = "https://github.com/quay/clair/blob/v${version}/CHANGELOG.md";
     license = licenses.asl20;
     maintainers = with maintainers; [ marsam ];
   };

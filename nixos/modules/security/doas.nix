@@ -12,9 +12,10 @@ let
 
   mkOpts = rule: concatStringsSep " " [
     (optionalString rule.noPass "nopass")
+    (optionalString rule.noLog "nolog")
     (optionalString rule.persist "persist")
     (optionalString rule.keepEnv "keepenv")
-    "setenv { SSH_AUTH_SOCK ${concatStringsSep " " rule.setEnv} }"
+    "setenv { SSH_AUTH_SOCK TERMINFO TERMINFO_DIRS ${concatStringsSep " " rule.setEnv} }"
   ];
 
   mkArgs = rule:
@@ -76,7 +77,7 @@ in
         You can use <code>mkBefore</code> and/or <code>mkAfter</code> to ensure
         this is the case when configuration options are merged.
       '';
-      example = literalExample ''
+      example = literalExpression ''
         [
           # Allow execution of any command by any user in group doas, requiring
           # a password and keeping any previously-defined environment variables.
@@ -115,6 +116,16 @@ in
               description = ''
                 If <code>true</code>, the user is not required to enter a
                 password.
+              '';
+            };
+
+            noLog = mkOption {
+              type = with types; bool;
+              default = false;
+              description = ''
+                If <code>true</code>, successful executions will not be logged
+                to
+                <citerefentry><refentrytitle>syslogd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
               '';
             };
 
@@ -230,9 +241,12 @@ in
       }
     ];
 
-    security.wrappers = {
-      doas.source = "${doas}/bin/doas";
-    };
+    security.wrappers.doas =
+      { setuid = true;
+        owner = "root";
+        group = "root";
+        source = "${doas}/bin/doas";
+      };
 
     environment.systemPackages = [
       doas

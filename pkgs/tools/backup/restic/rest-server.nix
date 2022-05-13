@@ -1,25 +1,21 @@
-{ lib, buildGoPackage, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub }:
 
-buildGoPackage rec {
+buildGoModule rec {
   pname = "restic-rest-server";
-  version = "0.9.7";
-
-  goPackagePath = "github.com/restic/rest-server";
+  version = "0.11.0";
 
   src = fetchFromGitHub {
     owner = "restic";
     repo = "rest-server";
     rev = "v${version}";
-    sha256 = "1g47ly1pxwn0znbj3v5j6kqhn66d4wf0d5gjqzig75pzknapv8qj";
+    hash = "sha256-ninPODztNzvB2js9cuNAuExQLK/OGOu80ZNW0BPrdds=";
   };
 
-  buildPhase = ''
-    cd go/src/${goPackagePath}
-    go run build.go
-  '';
+  vendorSha256 = "sha256-8x5qYvIX/C5BaewrTNVbIIadL+7XegbRUZiEDWmJM+c=";
 
-  installPhase = ''
-    install -Dt $out/bin rest-server
+  preCheck = ''
+    substituteInPlace cmd/rest-server/main_test.go \
+      --replace "/tmp/restic" "/build/restic"
   '';
 
   meta = with lib; {

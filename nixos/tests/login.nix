@@ -2,11 +2,11 @@ import ./make-test-python.nix ({ pkgs, latestKernel ? false, ... }:
 
 {
   name = "login";
-  meta = with pkgs.stdenv.lib.maintainers; {
+  meta = with pkgs.lib.maintainers; {
     maintainers = [ eelco ];
   };
 
-  machine =
+  nodes.machine =
     { pkgs, lib, ... }:
     { boot.kernelPackages = lib.mkIf latestKernel pkgs.linuxPackages_latest;
       sound.enable = true; # needed for the factl test, /dev/snd/* exists without them but udev doesn't care then
@@ -50,7 +50,7 @@ import ./make-test-python.nix ({ pkgs, latestKernel ? false, ... }:
       with subtest("Virtual console logout"):
           machine.send_chars("exit\n")
           machine.wait_until_fails("pgrep -u alice bash")
-          machine.screenshot("mingetty")
+          machine.screenshot("getty")
 
       with subtest("Check whether ctrl-alt-delete works"):
           machine.send_key("ctrl-alt-delete")

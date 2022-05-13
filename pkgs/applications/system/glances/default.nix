@@ -1,21 +1,22 @@
-{ stdenv, buildPythonApplication, fetchFromGitHub, fetchpatch, isPyPy, lib
-, future, psutil, setuptools
+{ stdenv, buildPythonApplication, fetchFromGitHub, isPyPy, lib
+, defusedxml, future, packaging, psutil, setuptools
 # Optional dependencies:
-, bottle, batinfo, pysnmp
+, bottle, pysnmp
 , hddtemp
 , netifaces # IP module
+, py-cpuinfo
 }:
 
 buildPythonApplication rec {
   pname = "glances";
-  version = "3.1.4.1";
+  version = "3.2.4.2";
   disabled = isPyPy;
 
   src = fetchFromGitHub {
     owner = "nicolargo";
     repo = "glances";
     rev = "v${version}";
-    sha256 = "04dc3pwj9qbbhxpihf13ckdgwz0qc771c7v7awni4vyzk3a9cdfb";
+    sha256 = "0gql61lrav3f7wbsvgc1d6vf8r0xi5xs9rz9d3sqw3wj5m90w0vq";
   };
 
   # Some tests fail in the sandbox (they e.g. require access to /sys/class/power_supply):
@@ -30,29 +31,27 @@ buildPythonApplication rec {
   ];
 
   doCheck = true;
-  preCheck = lib.optional stdenv.isDarwin ''
+  preCheck = lib.optionalString stdenv.isDarwin ''
     export DYLD_FRAMEWORK_PATH=/System/Library/Frameworks
   '';
 
   propagatedBuildInputs = [
-    batinfo
     bottle
+    defusedxml
     future
     netifaces
+    packaging
     psutil
     pysnmp
     setuptools
+    py-cpuinfo
   ] ++ lib.optional stdenv.isLinux hddtemp;
-
-  preConfigure = ''
-    sed -i 's/data_files\.append((conf_path/data_files.append(("etc\/glances"/' setup.py;
-  '';
 
   meta = with lib; {
     homepage = "https://nicolargo.github.io/glances/";
     description = "Cross-platform curses-based monitoring tool";
-    changelog = "https://github.com/nicolargo/glances/releases/tag/v${version}";
-    license = licenses.lgpl3;
+    changelog = "https://github.com/nicolargo/glances/blob/v${version}/NEWS.rst";
+    license = licenses.lgpl3Only;
     maintainers = with maintainers; [ jonringer primeos koral ];
   };
 }

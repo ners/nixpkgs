@@ -7,15 +7,19 @@
 
 buildPythonPackage rec {
   pname = "gitdb";
-  version = "4.0.2";
+  version = "4.0.9";
   disabled = !isPy3k;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0l113fphn6msjl3cl3kyf332b6lal7daxdd0nfma0x9ipfb013jr";
+    sha256 = "bac2fd45c0a1c9cf619e63a90d62bdc63892ef92387424b855792a6cabe789aa";
   };
 
   propagatedBuildInputs = [ smmap ];
+
+  postPatch = ''
+    substituteInPlace setup.py --replace ",<4" ""
+  '';
 
   # Bunch of tests fail because they need an actual git repo
   doCheck = false;

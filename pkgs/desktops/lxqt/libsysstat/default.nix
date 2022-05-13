@@ -9,13 +9,13 @@
 
 mkDerivation rec {
   pname = "libsysstat";
-  version = "0.4.3";
+  version = "0.4.6";
 
   src = fetchFromGitHub {
     owner = "lxqt";
     repo = pname;
     rev = version;
-    sha256 = "1dlshyv7pd7gwl55rd3msppjdpz2pwp5f4da9a9wapg7kiskqahf";
+    sha256 = "0z2r8041vqssm59lkb3ka7qis9br4wvavxzd45m3pnqlp7wwhkbn";
   };
 
   nativeBuildInputs = [
@@ -34,6 +34,6 @@ mkDerivation rec {
     homepage = "https://github.com/lxqt/libsysstat";
     license = licenses.lgpl21Plus;
     platforms = with platforms; unix;
-    maintainers = with maintainers; [ romildo ];
+    maintainers = teams.lxqt.members;
   };
 }

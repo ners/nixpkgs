@@ -1,11 +1,13 @@
-{ lib, stdenv, fetchurl, fetchzip, makeWrapper, runCommandNoCC, makeDesktopItem
-, xonotic-data
+{ lib, stdenv, fetchurl, fetchpatch, fetchzip, makeWrapper, runCommand, makeDesktopItem
+, xonotic-data, copyDesktopItems
 , # required for both
   unzip, libjpeg, zlib, libvorbis, curl
 , # glx
-  libX11, libGLU, libGL, libXpm, libXext, libXxf86vm, alsaLib
+  libX11, libGLU, libGL, libXpm, libXext, libXxf86vm, alsa-lib
 , # sdl
   SDL2
+, # blind
+  gmp
 
 , withSDL ? true
 , withGLX ? false
@@ -38,19 +40,19 @@ let
       aims to become the best possible open-source FPS of its kind.
     '';
     homepage = "https://www.xonotic.org/";
-    license = stdenv.lib.licenses.gpl2Plus;
-    maintainers = with stdenv.lib.maintainers; [ astsmtl zalakain petabyteboy ];
-    platforms = stdenv.lib.platforms.linux;
+    license = lib.licenses.gpl2Plus;
+    maintainers = with lib.maintainers; [ astsmtl zalakain petabyteboy ];
+    platforms = lib.platforms.linux;
   };
 
   desktopItem = makeDesktopItem {
     name = "xonotic";
-    exec = "$out/bin/xonotic";
+    exec = "xonotic";
     comment = meta.description;
     desktopName = "Xonotic";
-    categories = "Game;Shooter;";
+    categories = [ "Game" "Shooter" ];
     icon = "xonotic";
-    startupNotify = "false";
+    startupNotify = false;
   };
 
   xonotic-unwrapped = stdenv.mkDerivation rec {
@@ -58,12 +60,22 @@ let
     inherit version;
 
     src = fetchurl {
-      url = "https://dl.xonotic.org/${name}-source.zip";
+      url = "https://dl.xonotic.org/xonotic-${version}-source.zip";
       sha256 = "0axxw04fyz6jlfqd0kp7hdrqa0li31sx1pbipf2j5qp9wvqicsay";
     };
 
-    buildInputs = [ unzip libjpeg zlib libvorbis curl ]
-      ++ lib.optional withGLX [ libX11.dev libGLU.dev libGL.dev libXpm.dev libXext.dev libXxf86vm.dev alsaLib.dev ]
+    patches = [
+      # Fix to make darkplaces compile under GCC 11
+      (fetchpatch {
+        name = "fix-darkplaces-gcc11";
+        url = "https://gitlab.com/xonotic/darkplaces/-/commit/5e9e998c1759bc0085c3273fc39f9ea6f72a7dc8.patch";
+        sha256 = "sha256-s0JettSg0AYr8V2mXKJ2QU125bBcX1BAu/yDciTWC5o=";
+      })
+    ];
+
+    nativeBuildInputs = [ unzip ];
+    buildInputs = [ libjpeg zlib libvorbis curl gmp ]
+      ++ lib.optional withGLX [ libX11.dev libGLU.dev libGL.dev libXpm.dev libXext.dev libXxf86vm.dev alsa-lib.dev ]
       ++ lib.optional withSDL [ SDL2.dev ];
 
     sourceRoot = "Xonotic/source/darkplaces";
@@ -73,17 +85,27 @@ let
 
     dontStrip = target != "release";
 
-    buildPhase = lib.optionalString withDedicated ''
+    postConfigure = ''
+      pushd ../d0_blind_id
+      ./configure $configureFlags
+      popd
+    '';
+
+    buildPhase = (lib.optionalString withDedicated ''
       make -j $NIX_BUILD_CORES -l $NIX_BUILD_CORES sv-${target}
     '' + lib.optionalString withGLX ''
       make -j $NIX_BUILD_CORES -l $NIX_BUILD_CORES cl-${target}
     '' + lib.optionalString withSDL ''
       make -j $NIX_BUILD_CORES -l $NIX_BUILD_CORES sdl-${target}
+    '') + ''
+      pushd ../d0_blind_id
+      make -j $NIX_BUILD_CORES -l $NIX_BUILD_CORES
+      popd
     '';
 
     enableParallelBuilding = true;
 
-    installPhase = ''
+    installPhase = (''
       for size in 16x16 24x24 32x32 48x48 64x64 72x72 96x96 128x128 192x192 256x256 512x512 1024x1024 scalable; do
         install -Dm644 ../../misc/logos/xonotic_icon.svg \
           $out/share/icons/hicolor/$size/xonotic.svg
@@ -94,6 +116,10 @@ let
       install -Dm755 darkplaces-glx "$out/bin/xonotic-glx"
     '' + lib.optionalString withSDL ''
       install -Dm755 darkplaces-sdl "$out/bin/xonotic-sdl"
+    '') + ''
+      pushd ../d0_blind_id
+      make install
+      popd
     '';
 
     # Xonotic needs to find libcurl.so at runtime for map downloads
@@ -118,20 +144,21 @@ let
 
 in rec {
   xonotic-data = fetchzip {
-    name = "xonotic-data-${version}";
-    url = "https://dl.xonotic.org/${name}.zip";
-    sha256 = "1ygkh0v68y4sd1w5vpk8dgb65h5jm599hwszdfgjp3ax4d3ml81x";
+    name = "xonotic-data";
+    url = "https://dl.xonotic.org/xonotic-${version}.zip";
+    sha256 = "15caj11v9hhr7w55w3rs1rspblzr9lg1crqivbn9pyyq0rif8cpl";
     extraPostFetch = ''
       cd $out
-      rm -rf $(ls | grep -v "^data$")
+      rm -rf $(ls | grep -v "^data$" | grep -v "^key_0.d0pk$")
     '';
     meta.hydraPlatforms = [];
     passthru.version = version;
   };
 
-  xonotic = runCommandNoCC "xonotic${variant}-${version}" {
+  xonotic = runCommand "xonotic${variant}-${version}" {
     inherit xonotic-unwrapped;
-    buildInputs = [ makeWrapper ];
+    nativeBuildInputs = [ makeWrapper copyDesktopItems ];
+    desktopItems = [ desktopItem ];
     passthru = {
       inherit version;
       meta = meta // {
@@ -151,10 +178,10 @@ in rec {
   '' + lib.optionalString (withSDL || withGLX) ''
     mkdir -p $out/share
     ln -s ${xonotic-unwrapped}/share/icons $out/share/icons
-    ${desktopItem.buildCommand}
+    copyDesktopItems
   '' + ''
     for binary in $out/bin/xonotic-*; do
-      wrapProgram $binary --add-flags "-basedir ${xonotic-data}"
+      wrapProgram $binary --add-flags "-basedir ${xonotic-data}" --prefix LD_LIBRARY_PATH : "${xonotic-unwrapped}/lib"
     done
   '');
 }

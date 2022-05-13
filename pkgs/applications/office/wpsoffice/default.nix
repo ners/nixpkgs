@@ -1,18 +1,17 @@
-{ stdenv
+{ lib, stdenv
 , mkDerivation
 , fetchurl
-, autoPatchelfHook
 , dpkg
 , wrapGAppsHook
 , wrapQtAppsHook
-, alsaLib
+, alsa-lib
 , atk
 , bzip2
 , cairo
 , cups
 , dbus
 , expat
-, ffmpeg_3
+, ffmpeg
 , fontconfig
 , freetype
 , gdk-pixbuf
@@ -23,7 +22,7 @@
 , libtool
 , libuuid
 , libxml2
-, lzma
+, xz
 , nspr
 , nss
 , openssl
@@ -34,44 +33,46 @@
 , unixODBC
 , xorg
 , zlib
+, steam
+, makeWrapper
 }:
 
-stdenv.mkDerivation rec{
+stdenv.mkDerivation rec {
   pname = "wpsoffice";
-  version = "11.1.0.9505";
+  version = "11.1.0.9615";
 
   src = fetchurl {
-    url = "http://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/9505/wps-office_11.1.0.9505.XA_amd64.deb";
-    sha256 = "1bvaxwd3npw3kswk7k1p6mcbfg37x0ym4sp6xis6ykz870qivqk5";
+    url = "http://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/9615/wps-office_11.1.0.9615.XA_amd64.deb";
+    sha256 = "0dpd4njpizclllps3qagipycfws935rhj9k5gmdhjfgsk0ns188w";
   };
   unpackCmd = "dpkg -x $src .";
   sourceRoot = ".";
 
-  postUnpack = stdenv.lib.optionalString (version == "11.1.0.9505") ''
+  postUnpack = lib.optionalString (version == "11.1.0.9505") ''
     # distribution is missing libjsapiservice.so, so we should not let
     # autoPatchelfHook fail on the following dead libraries
     rm opt/kingsoft/wps-office/office6/{libjsetapi.so,libjswppapi.so,libjswpsapi.so}
   '';
 
-  nativeBuildInputs = [ autoPatchelfHook dpkg wrapGAppsHook wrapQtAppsHook ];
+  nativeBuildInputs = [ dpkg wrapGAppsHook wrapQtAppsHook makeWrapper ];
 
-  meta = {
-    description = "Office program originally named Kingsoft Office";
-    homepage = "http://wps-community.org/";
+  meta = with lib; {
+    description = "Office suite, formerly Kingsoft Office";
+    homepage = "https://www.wps.com/";
     platforms = [ "x86_64-linux" ];
     hydraPlatforms = [];
-    license = stdenv.lib.licenses.unfreeRedistributable;
-    maintainers = [ stdenv.lib.maintainers.mlatus ];
+    license = licenses.unfreeRedistributable;
+    maintainers = with maintainers; [ mlatus th0rgal ];
   };
 
   buildInputs = with xorg; [
-    alsaLib
+    alsa-lib
     atk
     bzip2
     cairo
     dbus.lib
     expat
-    ffmpeg_3
+    ffmpeg
     fontconfig
     freetype
     gdk-pixbuf
@@ -97,7 +98,7 @@ stdenv.mkDerivation rec{
     libuuid
     libxcb
     libxml2
-    lzma
+    xz
     nspr
     nss
     openssl
@@ -107,6 +108,7 @@ stdenv.mkDerivation rec{
     sqlite
     unixODBC
     zlib
+    cups.lib
   ];
 
   dontPatchELF = true;
@@ -137,7 +139,11 @@ stdenv.mkDerivation rec{
     "tcmalloc" # gperftools
   ];
 
-  installPhase = ''
+  installPhase = let
+    steam-run = (steam.override {
+      extraPkgs = p: buildInputs;
+    }).run;
+  in ''
     prefix=$out/opt/kingsoft/wps-office
     mkdir -p $out
     cp -r opt $out
@@ -153,11 +159,14 @@ stdenv.mkDerivation rec{
       substituteInPlace $i \
         --replace /usr/bin $out/bin
     done
-  '';
 
-  runtimeLibPath = stdenv.lib.makeLibraryPath [
-    cups.lib
-  ];
+    for i in wps wpp et wpspdf; do
+      mv $out/bin/$i $out/bin/.$i-orig
+      makeWrapper ${steam-run}/bin/steam-run $out/bin/$i \
+        --add-flags $out/bin/.$i-orig \
+        --argv0 $i
+    done
+  '';
 
   dontWrapQtApps = true;
   dontWrapGApps = true;
@@ -166,8 +175,7 @@ stdenv.mkDerivation rec{
       echo "Wrapping $f"
       wrapProgram "$f" \
         "''${gappsWrapperArgs[@]}" \
-        "''${qtWrapperArgs[@]}" \
-        --suffix LD_LIBRARY_PATH : "$runtimeLibPath"
+        "''${qtWrapperArgs[@]}"
     done
   '';
 }

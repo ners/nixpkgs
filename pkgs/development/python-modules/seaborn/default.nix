@@ -1,36 +1,55 @@
 { lib
 , buildPythonPackage
-, pythonOlder
 , fetchPypi
-, nose
-, pandas
 , matplotlib
+, pytestCheckHook
+, numpy
+, pandas
+, pythonOlder
+, scipy
 }:
 
 buildPythonPackage rec {
   pname = "seaborn";
-  version = "0.10.0";
+  version = "0.11.2";
+  format = "setuptools";
+
   disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "59fe414e138d7d5ea08b0feb01b86caf4682e36fa748e3987730523a89aecbb9";
+    sha256 = "cf45e9286d40826864be0e3c066f98536982baf701a7caa386511792d61ff4f6";
   };
 
-  checkInputs = [ nose ];
-  propagatedBuildInputs = [ pandas matplotlib ];
+  propagatedBuildInputs = [
+    matplotlib
+    numpy
+    pandas
+    scipy
+  ];
 
-  checkPhase = ''
-    nosetests -v
-  '';
+  checkInputs = [
+    pytestCheckHook
+  ];
 
-  # Computationally very demanding tests
-  doCheck = false;
+  disabledTests = [
+    # Tests fail because of AttributeError:...
+    "TestKDEPlotBivariate"
+    "TestBoxPlotter"
+    "TestCatPlot"
+    "TestKDEPlotUnivariate"
+    "test_with_rug"
+    "test_bivariate_kde_norm"
+  ];
 
-  meta = {
+  pythonImportsCheck= [
+    "seaborn"
+  ];
+
+  meta = with lib; {
     description = "Statisitical data visualization";
-    homepage = "http://stanford.edu/~mwaskom/software/seaborn/";
-    license = with lib.licenses; [ bsd3 ];
-    maintainers = with lib.maintainers; [ fridh ];
+    homepage = "https://seaborn.pydata.org/";
+    license = with licenses; [ bsd3 ];
+    maintainers = with maintainers; [ fridh ];
   };
 }

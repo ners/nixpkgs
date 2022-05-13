@@ -2,21 +2,21 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "emplace";
-  version = "0.3.1";
+  version = "1.4.2";
 
   src = fetchFromGitHub {
     owner = "tversteeg";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0wg8wavbs063dnpjia7wd60nf97v7pl4lm6s9xndpai1r1c99c2d";
+    sha256 = "sha256-5PuSIOXns0FVLgyIw1mk8hZ/tYhikMV860BHTDlji78=";
   };
 
-  cargoSha256 = "0igq8aml22c26w43zgk2gii8yl8mhs8ikfh0bn32ajwigqfk4vaq";
+  cargoSha256 = "sha256-UbbVjT5JQuVSCgbcelEVaAql4CUnCtO99zHp3Ei31Gs=";
 
   meta = with lib; {
     description = "Mirror installed software on multiple machines";
     homepage = "https://github.com/tversteeg/emplace";
-    license = licenses.agpl3;
-    maintainers = with maintainers; [ filalex77 ];
+    license = licenses.agpl3Plus;
+    maintainers = with maintainers; [ Br1ght0ne ];
   };
 }

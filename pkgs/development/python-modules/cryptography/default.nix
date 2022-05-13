@@ -1,62 +1,83 @@
-{ stdenv
+{ lib
+, stdenv
+, callPackage
 , buildPythonPackage
 , fetchPypi
-, fetchpatch
-, isPy27
-, ipaddress
+, rustPlatform
+, setuptools-rust
 , openssl
-, cryptography_vectors
-, darwin
+, Security
 , packaging
 , six
-, pythonOlder
 , isPyPy
 , cffi
-, pytest
+, pytestCheckHook
+, pytest-subtests
 , pretend
+, libiconv
 , iso8601
 , pytz
 , hypothesis
-, enum34
 }:
 
+let
+  cryptography-vectors = callPackage ./vectors.nix { };
+in
 buildPythonPackage rec {
   pname = "cryptography";
-  version = "2.9.1"; # Also update the hash in vectors.nix
+  version = "36.0.2"; # Also update the hash in vectors.nix
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "13inbbc3vqv0vpfww65f8pj3isghbcrd3m63xfyd8swl9f5xc2yf";
+    sha256 = "sha256-cPj097sqyfNAZVy6yJ1oxSevW7Q4dSKoQT6EHj5mKMk=";
   };
+
+  cargoDeps = rustPlatform.fetchCargoTarball {
+    inherit src;
+    sourceRoot = "${pname}-${version}/${cargoRoot}";
+    name = "${pname}-${version}";
+    sha256 = "sha256-6C4N445h4Xf2nCc9rJWpSZaNPilR9GfgbmKvNlSIFqg=";
+  };
+
+  cargoRoot = "src/rust";
 
   outputs = [ "out" "dev" ];
 
+  nativeBuildInputs = lib.optionals (!isPyPy) [
+    cffi
+  ] ++ [
+    rustPlatform.cargoSetupHook
+    setuptools-rust
+  ] ++ (with rustPlatform; [ rust.cargo rust.rustc ]);
+
   buildInputs = [ openssl ]
-             ++ stdenv.lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.Security;
-  propagatedBuildInputs = [
-    packaging
-    six
-  ] ++ stdenv.lib.optional (!isPyPy) cffi
-  ++ stdenv.lib.optionals isPy27 [ ipaddress enum34 ];
+    ++ lib.optionals stdenv.isDarwin [ Security libiconv ];
+
+  propagatedBuildInputs = lib.optionals (!isPyPy) [
+    cffi
+  ];
 
   checkInputs = [
-    cryptography_vectors
+    cryptography-vectors
     hypothesis
     iso8601
     pretend
-    pytest
+    pytestCheckHook
+    pytest-subtests
     pytz
   ];
 
-  checkPhase = ''
-    py.test --disable-pytest-warnings tests
-  '';
+  pytestFlagsArray = [
+    "--disable-pytest-warnings"
+  ];
 
-  # IOKit's dependencies are inconsistent between OSX versions, so this is the best we
-  # can do until nix 1.11's release
-  __impureHostDeps = [ "/usr/lib" ];
+  disabledTestPaths = lib.optionals (stdenv.isDarwin && stdenv.isAarch64) [
+    # aarch64-darwin forbids W+X memory, but this tests depends on it:
+    # * https://cffi.readthedocs.io/en/latest/using.html#callbacks
+    "tests/hazmat/backends/test_openssl_memleak.py"
+  ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A package which provides cryptographic recipes and primitives";
     longDescription = ''
       Cryptography includes both high level recipes and low level interfaces to
@@ -69,6 +90,6 @@ buildPythonPackage rec {
     changelog = "https://cryptography.io/en/latest/changelog/#v"
       + replaceStrings [ "." ] [ "-" ] version;
     license = with licenses; [ asl20 bsd3 psfl ];
-    maintainers = with maintainers; [ primeos ];
+    maintainers = with maintainers; [ SuperSandro2000 ];
   };
 }

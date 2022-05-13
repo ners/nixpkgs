@@ -1,40 +1,46 @@
-{ stdenv, fetchFromGitHub, cmake, llvm_6, ncurses, readline, zlib }:
+{ lib, stdenv, fetchFromGitHub, cmake, llvm_12, ncurses, readline, zlib, libxml2 }:
 
 stdenv.mkDerivation {
-  name = "hobbes";
-  version = "unstable-2020-03-10";
+  pname = "hobbes";
+  version = "unstable-2021-04-28";
 
   src = fetchFromGitHub {
     owner = "morgan-stanley";
     repo = "hobbes";
-    rev = "ae956df9da3f3b24630bc1757dfaa2a8952db07a";
-    sha256 = "1a0lb87vb0qcp5wy6swk4jcc88l7vhy6iflsk7zplw547mbjhjsy";
+    rev = "737c7ca63516f6b3dca0e659c3de75d4325472d6";
+    sha256 = "0fjsmz1sbrp6464mrb9ha7p615w2l2pdldsc2ayvcrvxfyi1r4gj";
   };
+
+  # TODO: re-enable Python tests once they work on Python 3
+  # currently failing with "I don't know how to decode the primitive type: b'bool'"
+  postPatch = ''
+    rm test/Python.C
+  '';
 
   nativeBuildInputs = [
     cmake
   ];
 
   buildInputs = [
-    llvm_6 # LLVM 6 is latest currently supported. See https://git.io/JvK6w.
+    llvm_12
     ncurses
     readline
     zlib
+    libxml2
   ];
 
-  doCheck = false; # Running tests in NixOS hangs. See https://git.io/JvK7R.
+  doCheck = true;
   checkTarget = "test";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A language and an embedded JIT compiler";
     longDescription = ''
       Hobbes is a a language, embedded compiler, and runtime for efficient
       dynamic expression evaluation, data storage and analysis.
     '';
-    homepage = "https://github.com/Morgan-Stanley/hobbes";
+    homepage = "https://github.com/morganstanley/hobbes";
     license = licenses.asl20;
-    maintainers = [ maintainers.thmzlt ];
+    maintainers = with maintainers; [ kthielen thmzlt ];
     platforms = [ "x86_64-linux" "x86_64-darwin" ];
-    broken = stdenv.isDarwin;
   };
 }

@@ -1,5 +1,5 @@
-{ stdenv, lib, pkgconfig, fetchFromGitHub, scons
-, python, glibmm, libpulseaudio, libao }:
+{ stdenv, lib, pkg-config, fetchFromGitHub, sconsPackages
+, glibmm, libpulseaudio, libao }:
 
 let
   version = "unstable-2018-02-10";
@@ -15,11 +15,11 @@ in stdenv.mkDerivation {
   };
 
   nativeBuildInputs = [
-    scons.py2 pkgconfig
+    sconsPackages.scons_3_1_2 pkg-config
   ];
 
   buildInputs = [
-    python glibmm libpulseaudio libao
+    glibmm libpulseaudio libao
   ];
 
   # SConstruct patch

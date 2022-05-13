@@ -1,30 +1,27 @@
-{ stdenv, fetchFromGitHub, intltool, autoreconfHook, pkgconfig, libqalculate, gtk3, wrapGAppsHook }:
+{ lib, stdenv, fetchFromGitHub, intltool, autoreconfHook, pkg-config, libqalculate, gtk3, wrapGAppsHook }:
 
 stdenv.mkDerivation rec {
   pname = "qalculate-gtk";
-  version = "3.8.0a";
+  version = "4.1.1";
 
   src = fetchFromGitHub {
     owner = "qalculate";
     repo = "qalculate-gtk";
     rev = "v${version}";
-    sha256 = "0bjd61bbc5b2i09kz3ss01c0xmxrhmiv5wpbhhplkp3yhw2qrf3m";
+    sha256 = "sha256-itYNKcdWYMoqlvZ7CYJ6WMv7rS/y1SVdt3O7ahkjPOk=";
   };
-
-  patchPhase = ''
-    substituteInPlace src/main.cc --replace 'getPackageDataDir().c_str()' \"$out/share\"
-  '';
 
   hardeningDisable = [ "format" ];
 
-  nativeBuildInputs = [ intltool pkgconfig autoreconfHook wrapGAppsHook ];
+  nativeBuildInputs = [ intltool pkg-config autoreconfHook wrapGAppsHook ];
   buildInputs = [ libqalculate gtk3 ];
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "The ultimate desktop calculator";
     homepage = "http://qalculate.github.io";
-    maintainers = with maintainers; [ gebner ];
+    maintainers = with maintainers; [ gebner doronbehar ];
+    license = licenses.gpl2Plus;
     platforms = platforms.all;
   };
 }

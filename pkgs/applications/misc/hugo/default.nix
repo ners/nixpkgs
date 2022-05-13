@@ -1,42 +1,41 @@
-{ stdenv, buildGoModule, fetchFromGitHub, libsass }:
+{ lib, buildGoModule, fetchFromGitHub, installShellFiles }:
 
 buildGoModule rec {
   pname = "hugo";
-  version = "0.70.0";
-
-  buildInputs = [ libsass ];
+  version = "0.98.0";
 
   src = fetchFromGitHub {
     owner = "gohugoio";
     repo = pname;
     rev = "v${version}";
-    sha256 = "14g1x95jh91z9xm3xkv2psw2jn7z6bv2009miyv727df4d58nh6m";
+    sha256 = "sha256-oZzjnuu6C522qBs/A83jKIZ3dUrJRmKJ/C8NRX31yvw=";
   };
 
-  golibsass = fetchFromGitHub {
-    owner = "bep";
-    repo = "golibsass";
-    rev = "8a04397f0baba474190a9f58019ff499ec43057a";
-    sha256 = "0xk3m2ynbydzx87dz573ihwc4ryq0r545vz937szz175ivgfrhh3";
-  };
+  vendorSha256 = "sha256-HM5IE/rVNWyTfjUtVOlw+69+YoWYlLtU2FOXeH2BAi8=";
 
-  overrideModAttrs = (_: {
-      postBuild = ''
-      rm -rf vendor/github.com/bep/golibsass/
-      cp -r --reflink=auto ${golibsass} vendor/github.com/bep/golibsass
-      '';
-    });
+  doCheck = false;
 
-  vendorSha256 = "1wl9pg5wf1n5n7gq6lyz0l5ij4icjpfinl4myxwj93l2hqqyx2lf";
+  proxyVendor = true;
 
-  buildFlags = [ "-tags" "extended" ];
+  tags = [ "extended" ];
 
   subPackages = [ "." ];
 
-  meta = with stdenv.lib; {
-    description = "A fast and modern static website engine.";
+  nativeBuildInputs = [ installShellFiles ];
+
+  postInstall = ''
+    $out/bin/hugo gen man
+    installManPage man/*
+    installShellCompletion --cmd hugo \
+      --bash <($out/bin/hugo completion bash) \
+      --fish <($out/bin/hugo completion fish) \
+      --zsh <($out/bin/hugo completion zsh)
+  '';
+
+  meta = with lib; {
+    description = "A fast and modern static website engine";
     homepage = "https://gohugo.io";
     license = licenses.asl20;
-    maintainers = with maintainers; [ schneefux filalex77 Frostman ];
+    maintainers = with maintainers; [ schneefux Br1ght0ne Frostman ];
   };
 }

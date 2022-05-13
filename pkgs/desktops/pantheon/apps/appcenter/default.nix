@@ -1,10 +1,10 @@
-{ stdenv
+{ lib
+, stdenv
+, nix-update-script
 , appstream
 , appstream-glib
 , dbus
 , desktop-file-utils
-, elementary-gtk-theme
-, elementary-icon-theme
 , fetchFromGitHub
 , fetchpatch
 , flatpak
@@ -14,43 +14,49 @@
 , gtk3
 , json-glib
 , libgee
+, libhandy
 , libsoup
 , libxml2
 , meson
 , ninja
 , packagekit
-, pantheon
-, pkgconfig
+, pkg-config
 , python3
 , vala
+, polkit
 , wrapGAppsHook
 }:
 
 stdenv.mkDerivation rec {
   pname = "appcenter";
-  version = "3.2.4";
+  version = "3.9.1";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "0nhgf5lgy74liml3kzijldan3qgrxh2721yvjdk4jf83b0g1b7yb";
+    sha256 = "sha256-xktIHQHmz5gh72NEz9UQ9fMvBlj1BihWxHgxsHmTIB0=";
   };
 
-  passthru = {
-    updateScript = pantheon.updateScript {
-      attrPath = "pantheon.${pname}";
-    };
-  };
+  patches = [
+    # Fix AppStream.PoolFlags being renamed
+    # Though the API break has been fixed in latest appstream,
+    # let's use the non-deprecated version anyway.
+    # https://github.com/elementary/appcenter/pull/1794
+    (fetchpatch {
+      url = "https://github.com/elementary/appcenter/commit/84bc6400713484aa9365f0ba73f59c495da3f08b.patch";
+      sha256 = "sha256-HNRCJ/5mRbEVjCq9nrXtdQOOk1Jj5jalApkghD8ecpk=";
+    })
+  ];
 
   nativeBuildInputs = [
     appstream-glib
-    dbus # for pkgconfig
+    dbus # for pkg-config
     desktop-file-utils
     gettext
     meson
     ninja
-    pkgconfig
+    pkg-config
     python3
     vala
     wrapGAppsHook
@@ -58,21 +64,20 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     appstream
-    elementary-icon-theme
-    elementary-gtk-theme
     flatpak
     glib
     granite
     gtk3
     json-glib
     libgee
+    libhandy
     libsoup
     libxml2
     packagekit
+    polkit
   ];
 
   mesonFlags = [
-    "-Dhomepage=false"
     "-Dpayments=false"
     "-Dcurated=false"
   ];
@@ -82,11 +87,18 @@ stdenv.mkDerivation rec {
     patchShebangs meson/post_install.py
   '';
 
-  meta = with stdenv.lib; {
+  passthru = {
+    updateScript = nix-update-script {
+      attrPath = "pantheon.${pname}";
+    };
+  };
+
+  meta = with lib; {
     homepage = "https://github.com/elementary/appcenter";
     description = "An open, pay-what-you-want app store for indie developers, designed for elementary OS";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    maintainers = pantheon.maintainers;
+    maintainers = teams.pantheon.members;
+    mainProgram = "io.elementary.appcenter";
   };
 }

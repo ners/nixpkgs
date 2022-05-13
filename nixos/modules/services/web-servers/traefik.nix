@@ -54,7 +54,7 @@ in {
 
     staticConfigFile = mkOption {
       default = null;
-      example = literalExample "/path/to/static_config.toml";
+      example = literalExpression "/path/to/static_config.toml";
       type = types.nullOr types.path;
       description = ''
         Path to traefik's static configuration to use.
@@ -78,7 +78,7 @@ in {
 
     dynamicConfigFile = mkOption {
       default = null;
-      example = literalExample "/path/to/dynamic_config.toml";
+      example = literalExpression "/path/to/dynamic_config.toml";
       type = types.nullOr types.path;
       description = ''
         Path to traefik's dynamic configuration to use.
@@ -123,7 +123,7 @@ in {
 
     package = mkOption {
       default = pkgs.traefik;
-      defaultText = "pkgs.traefik";
+      defaultText = literalExpression "pkgs.traefik";
       type = types.package;
       description = "Traefik package to use.";
     };
@@ -136,6 +136,8 @@ in {
       description = "Traefik web server";
       after = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
+      startLimitIntervalSec = 86400;
+      startLimitBurst = 5;
       serviceConfig = {
         ExecStart =
           "${cfg.package}/bin/traefik --configfile=${staticConfigFile}";
@@ -143,8 +145,6 @@ in {
         User = "traefik";
         Group = cfg.group;
         Restart = "on-failure";
-        StartLimitInterval = 86400;
-        StartLimitBurst = 5;
         AmbientCapabilities = "cap_net_bind_service";
         CapabilityBoundingSet = "cap_net_bind_service";
         NoNewPrivileges = true;

@@ -1,31 +1,75 @@
-{ lib, buildPythonPackage, fetchPypi
-, Babel, requests, requests_oauthlib, six, click, markdown, pyyaml
-, pytestrunner, coverage, flake8, mock, pytest, pytestcov, tox
+{ lib
+, Babel
+, buildPythonPackage
+, click
+, cryptography
+, fetchPypi
+, gntp
+, installShellFiles
+, markdown
+, mock
+, paho-mqtt
+, pytestCheckHook
+, pythonOlder
+, pyyaml
+, requests
+, requests-oauthlib
+, six
+, slixmpp
 }:
 
 buildPythonPackage rec {
   pname = "apprise";
-  version = "0.8.4";
+  version = "0.9.8.3";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "15kwnvs2ka6sg1gq65bbf9lk0jp104br813y6wvrbwipiz8kkjn1";
+    hash = "sha256-24OYAjbnzer0KyTRx7Kty8HVsHdon+l4UazcWMIm428=";
   };
 
-  nativeBuildInputs = [ Babel ];
+  nativeBuildInputs = [
+    Babel
+    installShellFiles
+  ];
 
   propagatedBuildInputs = [
-    requests requests_oauthlib six click markdown pyyaml
+    click
+    cryptography
+    markdown
+    pyyaml
+    requests
+    requests-oauthlib
+    six
   ];
 
   checkInputs = [
-    pytestrunner coverage flake8 mock pytest pytestcov tox
+    gntp
+    mock
+    paho-mqtt
+    pytestCheckHook
+    slixmpp
+  ];
+
+  disabledTests = [
+    "test_apprise_cli_nux_env"
+    "test_plugin_mqtt_general"
+  ];
+
+  postInstall = ''
+    installManPage packaging/man/apprise.1
+  '';
+
+  pythonImportsCheck = [
+    "apprise"
   ];
 
   meta = with lib; {
+    description = "Push Notifications that work with just about every platform";
     homepage = "https://github.com/caronc/apprise";
-    description = "Push Notifications that work with just about every platform!";
     license = licenses.mit;
-    maintainers = [ maintainers.marsam ];
+    maintainers = with maintainers; [ marsam ];
   };
 }

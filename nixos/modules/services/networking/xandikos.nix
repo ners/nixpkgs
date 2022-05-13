@@ -14,7 +14,7 @@ in
       package = mkOption {
         type = types.package;
         default = pkgs.xandikos;
-        defaultText = "pkgs.xandikos";
+        defaultText = literalExpression "pkgs.xandikos";
         description = "The Xandikos package to use.";
       };
 
@@ -45,7 +45,7 @@ in
       extraOptions = mkOption {
         default = [];
         type = types.listOf types.str;
-        example = literalExample ''
+        example = literalExpression ''
           [ "--autocreate"
             "--defaults"
             "--current-user-principal user"
@@ -90,7 +90,7 @@ in
   config = mkIf cfg.enable (
     mkMerge [
       {
-        meta.maintainers = [ lib.maintainers."0x4A6F" ];
+        meta.maintainers = with lib.maintainers; [ _0x4A6F ];
 
         systemd.services.xandikos = {
           description = "A Simple Calendar and Contact Server";
@@ -122,7 +122,7 @@ in
             ExecStart = ''
               ${cfg.package}/bin/xandikos \
                 --directory /var/lib/xandikos \
-                --listen_address ${cfg.address} \
+                --listen-address ${cfg.address} \
                 --port ${toString cfg.port} \
                 --route-prefix ${cfg.routePrefix} \
                 ${lib.concatStringsSep " " cfg.extraOptions}

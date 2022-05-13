@@ -1,10 +1,11 @@
-{ fetchurl, stdenv, gcj, unzip }:
+{ fetchurl, lib, stdenv, gcj, unzip }:
 
-stdenv.mkDerivation {
-  name = "pdftk-2.02";
+stdenv.mkDerivation rec {
+  pname = "pdftk";
+  version = "2.02";
 
   src = fetchurl {
-    url = "https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk-2.02-src.zip";
+    url = "https://www.pdflabs.com/tools/pdftk-the-pdf-toolkit/pdftk-${version}-src.zip";
     sha256 = "1hdq6zm2dx2f9h7bjrp6a1hfa1ywgkwydp14i2sszjiszljnm3qi";
   };
 
@@ -35,8 +36,9 @@ stdenv.mkDerivation {
   meta = {
     description = "Simple tool for doing everyday things with PDF documents";
     homepage = "https://www.pdflabs.com/tools/pdftk-server/";
-    license = stdenv.lib.licenses.gpl2;
-    maintainers = with stdenv.lib.maintainers; [raskin];
-    platforms = with stdenv.lib.platforms; linux;
+    license = lib.licenses.gpl2;
+    maintainers = with lib.maintainers; [ raskin ];
+    platforms = with lib.platforms; linux;
+    broken = true; # Broken on Hydra since 2020-08-24
   };
 }

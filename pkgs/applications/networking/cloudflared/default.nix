@@ -1,26 +1,38 @@
-{ stdenv, buildGoModule, fetchFromGitHub, runCommand }:
+{ lib, buildGoModule, fetchFromGitHub, stdenv }:
 
 buildGoModule rec {
   pname = "cloudflared";
-  version = "2020.3.2";
+  version = "2022.5.0";
 
   src = fetchFromGitHub {
     owner  = "cloudflare";
     repo   = "cloudflared";
     rev    = version;
-    sha256 = "1vbxm5z72y9zfg4carmja3fc1vhkanmc25pgnlw550p1l14y6404";
+    hash   = "sha256-vz0fxSzx0vOpZy6/MVfZ467c9qdHUWZIL5wklTnnBBA=";
   };
 
-  vendorSha256 = "14w2iz3ycbzfvlr8a6qn86aaa8687cm203d73wpfkfskp277hwz0";
-  deleteVendor = true;
+  vendorSha256 = null;
 
-  buildFlagsArray = "-ldflags=-X main.Version=${version}";
+  ldflags = [ "-X main.Version=${version}" ];
 
-  meta = with stdenv.lib; {
-    description = "CloudFlare Argo Tunnel daemon (and DNS-over-HTTPS client)";
-    homepage    = "https://www.cloudflare.com/products/argo-tunnel";
-    license     = licenses.unfree;
+  preCheck = ''
+    # Workaround for: sshgen_test.go:74: mkdir /homeless-shelter/.cloudflared: no such file or directory
+    export HOME="$(mktemp -d)";
+
+    # Workaround for: protocol_test.go:11:
+    #   lookup protocol-v2.argotunnel.com on [::1]:53: read udp [::1]:51876->[::1]:53: read: connection refused
+
+    substituteInPlace "edgediscovery/protocol_test.go" \
+      --replace "TestProtocolPercentage" "SkipProtocolPercentage"
+  '';
+
+  doCheck = !stdenv.isDarwin;
+
+  meta = with lib; {
+    description = "CloudFlare Tunnel daemon (and DNS-over-HTTPS client)";
+    homepage    = "https://www.cloudflare.com/products/tunnel";
+    license     = licenses.asl20;
     platforms   = platforms.unix;
-    maintainers = [ maintainers.thoughtpolice maintainers.enorris ];
+    maintainers = with maintainers; [ bbigras enorris thoughtpolice techknowlogick ];
   };
 }

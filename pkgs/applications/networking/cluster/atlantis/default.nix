@@ -1,24 +1,28 @@
-{ stdenv, buildGoModule, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub }:
 
 buildGoModule rec {
   pname = "atlantis";
-  version = "0.12.0";
+  version = "0.19.2";
 
   src = fetchFromGitHub {
     owner = "runatlantis";
     repo = "atlantis";
     rev = "v${version}";
-    sha256 = "16zz4xwpqipdmszbz93xxw31hbh7s8pfa9dm64ybyni7wc4lvdy6";
+    sha256 = "sha256-cd2dhrqJl/VRhOYB1g9OpOnPV92EQm8f3rRGZGVN+IY=";
   };
 
-  vendorSha256 = null;
+  vendorSha256 = "sha256-ux+Hw/TjeiY9VYhIQxaltZGk5CkxAab8R7kAsTaMUGc=";
 
   subPackages = [ "." ];
 
-  meta = with stdenv.lib; {
+  doInstallCheck = true;
+  installCheckPhase = ''
+    $out/bin/atlantis version | grep ${version} > /dev/null
+  '';
+
+  meta = with lib; {
     homepage = "https://github.com/runatlantis/atlantis";
     description = "Terraform Pull Request Automation";
-    platforms = platforms.all;
     license = licenses.asl20;
     maintainers = with maintainers; [ jpotier ];
   };

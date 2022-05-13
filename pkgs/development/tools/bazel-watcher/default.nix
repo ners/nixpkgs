@@ -1,13 +1,9 @@
 { buildBazelPackage
 , fetchFromGitHub
-, fetchpatch
 , git
 , go
-, python
-, stdenv
-, iana-etc
-, mailcap
-, tzdata
+, python3
+, lib, stdenv
 }:
 
 let
@@ -16,17 +12,17 @@ let
   ];
 in
 buildBazelPackage rec {
-  name = "bazel-watcher-${version}";
-  version = "0.13.0";
+  pname = "bazel-watcher";
+  version = "0.14.0";
 
   src = fetchFromGitHub {
     owner = "bazelbuild";
     repo = "bazel-watcher";
     rev = "v${version}";
-    sha256 = "1fc3sp79znbbq1yjap56lham72n7cap8yfghpzrzmpl5brybjkvm";
+    sha256 = "0gigl1lg8sb4bj5crvj54329ws4yirldbncs15f96db6vhp0ig7r";
   };
 
-  nativeBuildInputs = [ go git python ];
+  nativeBuildInputs = [ go git python3 ];
   removeRulesCC = false;
 
   bazelTarget = "//ibazel";
@@ -60,7 +56,7 @@ buildBazelPackage rec {
       sed -e '/^FILE:@bazel_gazelle_go_repository_tools.*/d' -i $bazelOut/external/\@*.marker
     '';
 
-    sha256 = "0ili0123xcl0mjcrn4r1r1q9d7a8a3bbh9r3zhlshl39awfm4r2d";
+    sha256 = "1j175z3d4fbi4pl35py7yjq7ywrvwin6id131jv32hx0ck4g1m46";
   };
 
   buildAttrs = {
@@ -68,6 +64,8 @@ buildBazelPackage rec {
 
     preBuild = ''
       patchShebangs .
+
+      substituteInPlace ibazel/BUILD --replace '{STABLE_GIT_VERSION}' ${version}
     '';
 
     installPhase = ''
@@ -75,11 +73,13 @@ buildBazelPackage rec {
     '';
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://github.com/bazelbuild/bazel-watcher";
-    description = "Tools for building Bazel targets when source files change.";
+    description = "Tools for building Bazel targets when source files change";
     license = licenses.asl20;
     maintainers = with maintainers; [ kalbasit ];
     platforms = platforms.all;
+    # broken on darwin, see https://github.com/NixOS/nixpkgs/issues/105573
+    broken = stdenv.isDarwin;
   };
 }

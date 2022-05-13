@@ -1,27 +1,32 @@
-{ stdenv, fetchFromGitHub, cmake, pkgconfig, gtk3, ncurses, curl
-, json_c, libcpuid, pciutils, procps, wrapGAppsHook, nasm }:
+{ lib, stdenv, fetchFromGitHub, cmake, pkg-config, gtk3, ncurses
+, libcpuid, pciutils, procps, wrapGAppsHook, nasm, makeWrapper }:
 
 stdenv.mkDerivation rec {
   pname = "cpu-x";
-  version = "3.2.4";
+  version = "4.3.0";
 
   src = fetchFromGitHub {
     owner = "X0rg";
     repo = "CPU-X";
     rev = "v${version}";
-    sha256 = "03y49wh9v7x6brmavj5a2clihn0z4f01pypl7m8ymarv4y3a6xkl";
+    sha256 = "sha256-pYinePs7WFVfRMNYTY+Is8B+cv5w6IF7Ce+9v/mLRYg=";
   };
 
-  nativeBuildInputs = [ cmake pkgconfig wrapGAppsHook nasm ];
+  nativeBuildInputs = [ cmake pkg-config wrapGAppsHook nasm makeWrapper ];
   buildInputs = [
-    gtk3 ncurses curl json_c libcpuid pciutils procps
+    gtk3 ncurses libcpuid pciutils procps
   ];
 
-  meta = with stdenv.lib; {
+  postInstall = ''
+    wrapProgram $out/bin/cpu-x \
+      --prefix PATH : ${lib.makeBinPath [ stdenv.cc ]}
+  '';
+
+  meta = with lib; {
     description = "Free software that gathers information on CPU, motherboard and more";
     homepage = src.meta.homepage;
     license = licenses.gpl3;
     platforms = [ "x86_64-linux" ];
-    maintainers = with maintainers; [ gnidorah ];
+    maintainers = with maintainers; [ ];
   };
 }

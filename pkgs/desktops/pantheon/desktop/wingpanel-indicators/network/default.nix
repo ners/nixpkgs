@@ -1,7 +1,9 @@
-{ stdenv
+{ lib
+, stdenv
 , fetchFromGitHub
-, pantheon
-, pkgconfig
+, nix-update-script
+, substituteAll
+, pkg-config
 , meson
 , ninja
 , vala
@@ -15,25 +17,19 @@
 
 stdenv.mkDerivation rec {
   pname = "wingpanel-indicator-network";
-  version = "2.2.3";
+  version = "2.3.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "17s5fixhwgalgjhrhnb3wh0hdzi17waqcdfw1fx8q4zs78hapjzg";
-  };
-
-  passthru = {
-    updateScript = pantheon.updateScript {
-      attrPath = "pantheon.${pname}";
-    };
+    sha256 = "sha256-4Fg8/Gm9mUqaL3wEc8h+/pMvOfD75ILjo7LhLz6LQmo=";
   };
 
   nativeBuildInputs = [
     meson
     ninja
-    pkgconfig
+    pkg-config
     vala
   ];
 
@@ -46,11 +42,17 @@ stdenv.mkDerivation rec {
     wingpanel
   ];
 
-  meta = with stdenv.lib; {
+  passthru = {
+    updateScript = nix-update-script {
+      attrPath = "pantheon.${pname}";
+    };
+  };
+
+  meta = with lib; {
     description = "Network Indicator for Wingpanel";
     homepage = "https://github.com/elementary/wingpanel-indicator-network";
     license = licenses.lgpl21Plus;
     platforms = platforms.linux;
-    maintainers = pantheon.maintainers;
+    maintainers = teams.pantheon.members;
   };
 }

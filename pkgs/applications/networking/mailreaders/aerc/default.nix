@@ -1,35 +1,29 @@
-{ stdenv, buildGoModule, fetchurl
-, go, ncurses, notmuch, scdoc
-, python3, perl, w3m, dante
-, fetchFromGitHub
+{ lib
+, buildGoModule
+, fetchFromSourcehut
+, ncurses
+, notmuch
+, scdoc
+, python3
+, w3m
+, dante
 }:
 
-let
-  rev = "ea0df7bee433fedae5716906ea56141f92b9ce53";
-in buildGoModule rec {
+buildGoModule rec {
   pname = "aerc";
-  version = "unstable-2020-02-01";
+  version = "0.10.0";
 
-  src = fetchurl {
-    url = "https://git.sr.ht/~sircmpwn/aerc/archive/${rev}.tar.gz";
-    sha256 = "1bx2fypw053v3bzalfgyi6a0s5fvv040z8jy4i63s7p53m8gmzs9";
+  src = fetchFromSourcehut {
+    owner = "~rjarry";
+    repo = pname;
+    rev = version;
+    sha256 = "sha256-v1+12UCgBbH/2PxZ9QdDN30LmyzVcfGlYiVNVPYO3zs=";
   };
 
-  libvterm = fetchFromGitHub {
-    owner = "ddevault";
-    repo = "go-libvterm";
-    rev = "b7d861da381071e5d3701e428528d1bfe276e78f";
-    sha256 = "06vv4pgx0i6hjdjcar4ch18hp9g6q6687mbgkvs8ymmbacyhp7s6";
-  };
+  proxyVendor = true;
+  vendorSha256 = "sha256-fGQ15i3mWNmmfypRt5A7SAVYSEg9m4so4FYlUY+7mW8=";
 
-  vendorSha256 = "0rnyjjlsxsi0y23m6ckyd52562m33qr35fvdcdzy31mbfpi8kl2k";
-
-  overrideModAttrs = (_: {
-      postBuild = ''
-      cp -r --reflink=auto ${libvterm}/libvterm vendor/github.com/ddevault/go-libvterm
-      cp -r --reflink=auto ${libvterm}/encoding vendor/github.com/ddevault/go-libvterm
-      '';
-    });
+  doCheck = false;
 
   nativeBuildInputs = [
     scdoc
@@ -40,36 +34,37 @@ in buildGoModule rec {
     ./runtime-sharedir.patch
   ];
 
+  postPatch = ''
+    substituteAllInPlace config/aerc.conf
+    substituteAllInPlace config/config.go
+    substituteAllInPlace doc/aerc-config.5.scd
+  '';
+
+  makeFlags = [ "PREFIX=${placeholder "out"}" ];
+
   pythonPath = [
     python3.pkgs.colorama
   ];
 
   buildInputs = [ python3 notmuch ];
 
-  GOFLAGS="-tags=notmuch";
-
-  buildPhase = "
-    runHook preBuild
-    # we use make instead of go build
-    runHook postBuild
-  ";
-
   installPhase = ''
     runHook preInstall
-    make PREFIX=$out install
-    wrapPythonProgramsIn $out/share/aerc/filters "$out $pythonPath"
+
+    make $makeFlags GOFLAGS="$GOFLAGS -tags=notmuch" install
+
     runHook postInstall
   '';
 
   postFixup = ''
     wrapProgram $out/bin/aerc --prefix PATH ":" \
-      "$out/share/aerc/filters:${stdenv.lib.makeBinPath [ ncurses ]}"
+      "$out/share/aerc/filters:${lib.makeBinPath [ ncurses ]}"
     wrapProgram $out/share/aerc/filters/html --prefix PATH ":" \
-      ${stdenv.lib.makeBinPath [ w3m dante ]}
+      ${lib.makeBinPath [ w3m dante ]}
   '';
 
-  meta = with stdenv.lib; {
-    description = "aerc is an email client for your terminal";
+  meta = with lib; {
+    description = "An email client for your terminal";
     homepage = "https://aerc-mail.org/";
     maintainers = with maintainers; [ tadeokondrak ];
     license = licenses.mit;

@@ -1,19 +1,26 @@
-{ stdenv, buildPackages, fetchurl, fetchpatch, pkgconfig, libuuid, gettext, texinfo, shared ? true }:
+{ lib, stdenv, buildPackages, fetchurl, fetchpatch, pkg-config, libuuid, gettext, texinfo
+, fuse
+, shared ? !stdenv.hostPlatform.isStatic
+, e2fsprogs, runCommand
+}:
 
 stdenv.mkDerivation rec {
   pname = "e2fsprogs";
-  version = "1.45.5";
+  version = "1.46.5";
 
   src = fetchurl {
     url = "mirror://sourceforge/${pname}/${pname}-${version}.tar.gz";
-    sha256 = "1n8ffss5044j9382rlvmhyr1f6kmnfjfbv6q4jbbh8gfdwpjmrwi";
+    sha256 = "1fgvwbj9ihz5svzrd2l0s18k16r4qg3wimrniv71fn3vdcg0shxp";
   };
 
-  outputs = [ "bin" "dev" "out" "man" "info" ];
+  # fuse2fs adds 14mb of dependencies
+  outputs = [ "bin" "dev" "out" "man" "info" ]
+    ++ lib.optionals stdenv.isLinux [ "fuse2fs" ];
 
   depsBuildBuild = [ buildPackages.stdenv.cc ];
-  nativeBuildInputs = [ pkgconfig texinfo ];
-  buildInputs = [ libuuid gettext ];
+  nativeBuildInputs = [ pkg-config texinfo ];
+  buildInputs = [ libuuid gettext ]
+    ++ lib.optionals stdenv.isLinux [ fuse ];
 
   # Only use glibc's __GNUC_PREREQ(X,Y) (checks if compiler is gcc version >= X.Y) when using glibc
   patches = if stdenv.hostPlatform.libc == "glibc" then null
@@ -59,14 +66,32 @@ stdenv.mkDerivation rec {
     if [ -f $out/lib/${pname}/e2scrub_all_cron ]; then
       mv $out/lib/${pname}/e2scrub_all_cron $bin/bin/
     fi
+  '' + lib.optionalString stdenv.isLinux ''
+    mkdir -p $fuse2fs/bin
+    mv $bin/bin/fuse2fs $fuse2fs/bin/fuse2fs
   '';
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  passthru.tests = {
+    simple-filesystem = runCommand "e2fsprogs-create-fs" {} ''
+      mkdir -p $out
+      truncate -s10M $out/disc
+      ${e2fsprogs}/bin/mkfs.ext4 $out/disc | tee $out/success
+      ${e2fsprogs}/bin/e2fsck -n $out/disc | tee $out/success
+      [ -e $out/success ]
+    '';
+  };
+  meta = with lib; {
     homepage = "http://e2fsprogs.sourceforge.net/";
+    changelog = "http://e2fsprogs.sourceforge.net/e2fsprogs-release.html#${version}";
     description = "Tools for creating and checking ext2/ext3/ext4 filesystems";
-    license = licenses.gpl2;
+    license = with licenses; [
+      gpl2Plus
+      lgpl2Plus # lib/ext2fs, lib/e2p
+      bsd3      # lib/uuid
+      mit       # lib/et, lib/ss
+    ];
     platforms = platforms.unix;
     maintainers = [ maintainers.eelco ];
   };

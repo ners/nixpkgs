@@ -1,107 +1,217 @@
-{ pkgs, stdenv, lib, fetchFromGitHub, python3
-# To include additional plugins, pass them here as an overlay.
-, packageOverrides ? self: super: {}
+{ pkgs
+, stdenv
+, lib
+, fetchFromGitHub
+, python3
+, substituteAll
+, nix-update-script
+  # To include additional plugins, pass them here as an overlay.
+, packageOverrides ? self: super: { }
 }:
 let
-  mkOverride = attrname: version: sha256:
-    self: super: {
-      ${attrname} = super.${attrname}.overridePythonAttrs (oldAttrs: {
-        inherit version;
-        src = oldAttrs.src.override {
-          inherit version sha256;
-        };
-      });
-    };
 
   py = python3.override {
     self = py;
-    packageOverrides = lib.foldr lib.composeExtensions (self: super: { }) ([
-      (mkOverride "flask"       "0.12.5" "fac2b9d443e49f7e7358a444a3db5950bdd0324674d92ba67f8f1f15f876b14f")
-      (mkOverride "flaskbabel"  "0.12.2" "11jwp8vvq1gnm31qh6ihy2h393hy18yn9yjp569g60r0wj1x2sii")
-      (mkOverride "tornado"     "4.5.3"  "02jzd23l4r6fswmwxaica9ldlyc2p6q8dk6dyff7j58fmdzf853d")
-      (mkOverride "psutil"      "5.6.7"  "ffad8eb2ac614518bbe3c0b8eb9dffdb3a8d2e3a7d5da51c5b974fb723a5c5aa")
+    packageOverrides = lib.foldr lib.composeExtensions (self: super: { }) (
+      [
+        # Built-in dependency
+        (
+          self: super: {
+            octoprint-filecheck = self.buildPythonPackage rec {
+              pname = "OctoPrint-FileCheck";
+              version = "2021.2.23";
 
-      # Octoprint holds back jinja2 to 2.8.1 due to breaking changes.
-      # This old version does not have updated test config for pytest 4,
-      # and pypi tarball doesn't contain tests dir anyways.
-      (self: super: {
-        jinja2 = super.jinja2.overridePythonAttrs (oldAttrs: rec {
-          version = "2.8.1";
-          src = oldAttrs.src.override {
-            inherit version;
-            sha256 = "14aqmhkc9rw5w0v311jhixdm6ym8vsm29dhyxyrjfqxljwx1yd1m";
-          };
-          doCheck = false;
-        });
+              src = fetchFromGitHub {
+                owner = "OctoPrint";
+                repo = "OctoPrint-FileCheck";
+                rev = version;
+                sha256 = "sha256-e/QGEBa9+pjOdrZq3Zc6ifbSMClIyeTOi0Tji0YdVmI=";
+              };
+              doCheck = false;
+            };
+          }
+        )
 
-        httpretty = super.httpretty.overridePythonAttrs (oldAttrs: rec {
-          doCheck = false;
-        });
+        # Built-in dependency
+        (
+          self: super: {
+            octoprint-firmwarecheck = self.buildPythonPackage rec {
+              pname = "OctoPrint-FirmwareCheck";
+              version = "2021.10.11";
 
-        celery = super.celery.overridePythonAttrs (oldAttrs: rec {
-          doCheck = false;
-        });
-      })
-      (self: super: {
-        octoprint = self.buildPythonPackage rec {
-          pname = "OctoPrint";
-          version = "1.4.0";
+              src = fetchFromGitHub {
+                owner = "OctoPrint";
+                repo = "OctoPrint-FirmwareCheck";
+                rev = version;
+                sha256 = "0hl0612x0h4pcwsrga5il5x3m04j37cmyzh2dg1kl971cvrw79n2";
+              };
+              doCheck = false;
+            };
+          }
+        )
 
-          src = fetchFromGitHub {
-            owner  = "foosel";
-            repo   = "OctoPrint";
-            rev    = version;
-            sha256 = "0387228544v28d69dcdg2zr5gp6qavkfr6dydpjgj5awxv3w25d5";
-          };
+        (
+          self: super: {
+            octoprint-pisupport = self.buildPythonPackage rec {
+              pname = "OctoPrint-PiSupport";
+              version = "2022.3.28";
+              format = "setuptools";
 
-          propagatedBuildInputs = with super; [
-            awesome-slugify flask flask_assets rsa requests pkginfo watchdog
-            semantic-version werkzeug flaskbabel tornado
-            psutil pyserial flask_login netaddr markdown
-            pylru pyyaml sarge feedparser netifaces click websocket_client
-            scandir chainmap future wrapt monotonic emoji jinja2
-            frozendict cachelib sentry-sdk filetype markupsafe
-          ] ++ lib.optionals stdenv.isDarwin [ py.pkgs.appdirs ];
+              src = fetchFromGitHub {
+                owner = "OctoPrint";
+                repo = "OctoPrint-PiSupport";
+                rev = version;
+                sha256 = "yzE/jz604nX/CHcW3aa7goH1ey8qZ7rLw31SMfNKJZM=";
+              };
 
-          checkInputs = with super; [ pytestCheckHook mock ddt ];
+              # requires octoprint itself during tests
+              doCheck = false;
+            };
+          }
+        )
 
-          postPatch = let
-            ignoreVersionConstraints = [
-              "sentry-sdk"
-            ];
-          in ''
-            sed -r -i \
-              ${lib.concatStringsSep "\n" (map (e:
-                ''-e 's@${e}[<>=]+.*@${e}",@g' \''
-              ) ignoreVersionConstraints)}
-              setup.py
-          '';
+        (
+          self: super: {
+            octoprint = self.buildPythonPackage rec {
+              pname = "OctoPrint";
+              version = "1.8.0rc5";
 
-          dontUseSetuptoolsCheck = true;
+              src = fetchFromGitHub {
+                owner = "OctoPrint";
+                repo = "OctoPrint";
+                rev = version;
+                sha256 = "sha256-FeT45w6VXaFV4BsuOMk58nxxiu9jhCNnA2F7Uh/3sB0=";
+              };
 
-          preCheck = ''
-            export HOME=$(mktemp -d)
-            rm pytest.ini
-          '';
+              propagatedBuildInputs = with super; [
+                blinker
+                cachelib
+                click
+                colorlog
+                emoji
+                feedparser
+                filetype
+                flask
+                flask-babel
+                flask_assets
+                flask_login
+                frozendict
+                future
+                itsdangerous
+                immutabledict
+                jinja2
+                markdown
+                markupsafe
+                netaddr
+                netifaces
+                octoprint-filecheck
+                octoprint-firmwarecheck
+                octoprint-pisupport
+                pathvalidate
+                pkginfo
+                pip
+                psutil
+                pylru
+                pyserial
+                pyyaml
+                regex
+                requests
+                rsa
+                sarge
+                semantic-version
+                sentry-sdk
+                setuptools
+                tornado
+                unidecode
+                watchdog
+                websocket-client
+                werkzeug
+                wrapt
+                zeroconf
+                zipstream-ng
+              ] ++ lib.optionals stdenv.isDarwin [
+                py.pkgs.appdirs
+              ];
 
-          disabledTests = [
-            "test_check_setup" # Why should it be able to call pip?
-          ] ++ lib.optionals stdenv.isDarwin [
-            "test_set_external_modification"
-          ];
+              checkInputs = with super; [
+                ddt
+                mock
+                pytestCheckHook
+              ];
 
-          passthru.python = self.python;
+              patches = [
+                # substitute pip and let it find out, that it can't write anywhere
+                (substituteAll {
+                  src = ./pip-path.patch;
+                  pip = "${super.pip}/bin/pip";
+                })
 
-          meta = with stdenv.lib; {
-            homepage = "https://octoprint.org/";
-            description = "The snappy web interface for your 3D printer";
-            license = licenses.agpl3;
-            maintainers = with maintainers; [ abbradar gebner WhittlesJr ];
-          };
-        };
-      })
-      (import ./plugins.nix {inherit pkgs;})
-      packageOverrides
-    ]);
+                # hardcore path to ffmpeg and hide related settings
+                (substituteAll {
+                  src = ./ffmpeg-path.patch;
+                  ffmpeg = "${pkgs.ffmpeg}/bin/ffmpeg";
+                })
+              ];
+
+              postPatch =
+                let
+                  ignoreVersionConstraints = [
+                    "cachelib"
+                    "colorlog"
+                    "emoji"
+                    "immutabledict"
+                    "PyYAML"
+                    "sarge"
+                    "sentry-sdk"
+                    "watchdog"
+                    "wrapt"
+                    "zeroconf"
+                    "Flask-Login"
+                    "werkzeug"
+                  ];
+                in
+                ''
+                    sed -r -i \
+                      ${lib.concatStringsSep "\n" (
+                    map (
+                      e:
+                        ''-e 's@${e}[<>=]+.*@${e}",@g' \''
+                    ) ignoreVersionConstraints
+                  )}
+                      setup.py
+                '';
+
+              dontUseSetuptoolsCheck = true;
+
+              preCheck = ''
+                export HOME=$(mktemp -d)
+                rm pytest.ini
+              '';
+
+              disabledTests = [
+                "test_check_setup" # Why should it be able to call pip?
+              ] ++ lib.optionals stdenv.isDarwin [
+                "test_set_external_modification"
+              ];
+
+              passthru = {
+                python = self.python;
+                updateScript = nix-update-script { attrPath = "octoprint"; };
+              };
+
+              meta = with lib; {
+                homepage = "https://octoprint.org/";
+                description = "The snappy web interface for your 3D printer";
+                license = licenses.agpl3Only;
+                maintainers = with maintainers; [ abbradar gebner WhittlesJr gador ];
+              };
+            };
+          }
+        )
+        (import ./plugins.nix { inherit pkgs; })
+        packageOverrides
+      ]
+    );
   };
-in with py.pkgs; toPythonApplication octoprint
+in
+with py.pkgs; toPythonApplication octoprint

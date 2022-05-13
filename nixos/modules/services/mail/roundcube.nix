@@ -7,7 +7,7 @@ let
   fpm = config.services.phpfpm.pools.roundcube;
   localDB = cfg.database.host == "localhost";
   user = cfg.database.username;
-  phpWithPspell = pkgs.php.withExtensions ({ enabled, all }: [ all.pspell ] ++ enabled);
+  phpWithPspell = pkgs.php80.withExtensions ({ enabled, all }: [ all.pspell ] ++ enabled);
 in
 {
   options.services.roundcube = {
@@ -32,8 +32,9 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.roundcube;
+      defaultText = literalExpression "pkgs.roundcube";
 
-      example = literalExample ''
+      example = literalExpression ''
         roundcube.withPlugins (plugins: [ plugins.persistent_login ])
       '';
 
@@ -89,10 +90,22 @@ in
     dicts = mkOption {
       type = types.listOf types.package;
       default = [];
-      example = literalExample "with pkgs.aspellDicts; [ en fr de ]";
+      example = literalExpression "with pkgs.aspellDicts; [ en fr de ]";
       description = ''
         List of aspell dictionnaries for spell checking. If empty, spell checking is disabled.
       '';
+    };
+
+    maxAttachmentSize = mkOption {
+      type = types.int;
+      default = 18;
+      description = ''
+        The maximum attachment size in MB.
+
+        Note: Since roundcube only uses 70% of max upload values configured in php
+        30% is added automatically to <xref linkend="opt-services.roundcube.maxAttachmentSize"/>.
+      '';
+      apply = configuredMaxAttachmentSize: "${toString (configuredMaxAttachmentSize * 1.3)}M";
     };
 
     extraConfig = mkOption {
@@ -115,7 +128,7 @@ in
       $config = array();
       $config['db_dsnw'] = 'pgsql://${cfg.database.username}${lib.optionalString (!localDB) ":' . $password . '"}@${if localDB then "unix(/run/postgresql)" else cfg.database.host}/${cfg.database.dbname}';
       $config['log_driver'] = 'syslog';
-      $config['max_message_size'] = '25M';
+      $config['max_message_size'] =  '${cfg.maxAttachmentSize}';
       $config['plugins'] = [${concatMapStringsSep "," (p: "'${p}'") cfg.plugins}];
       $config['des_key'] = file_get_contents('/var/lib/roundcube/des_key');
       $config['mime_types'] = '${pkgs.nginx}/conf/mime.types';
@@ -140,7 +153,7 @@ in
               location ~* \.php$ {
                 fastcgi_split_path_info ^(.+\.php)(/.+)$;
                 fastcgi_pass unix:${fpm.socket};
-                include ${pkgs.nginx}/conf/fastcgi_params;
+                include ${config.services.nginx.package}/conf/fastcgi_params;
                 include ${pkgs.nginx}/conf/fastcgi.conf;
               }
             '';
@@ -172,8 +185,8 @@ in
       phpOptions = ''
         error_log = 'stderr'
         log_errors = on
-        post_max_size = 25M
-        upload_max_filesize = 25M
+        post_max_size = ${cfg.maxAttachmentSize}
+        upload_max_filesize = ${cfg.maxAttachmentSize}
       '';
       settings = mapAttrs (name: mkDefault) {
         "listen.owner" = "nginx";
@@ -191,6 +204,11 @@ in
       phpEnv.ASPELL_CONF = "dict-dir ${pkgs.aspellWithDicts (_: cfg.dicts)}/lib/aspell";
     };
     systemd.services.phpfpm-roundcube.after = [ "roundcube-setup.service" ];
+
+    # Restart on config changes.
+    systemd.services.phpfpm-roundcube.restartTriggers = [
+      config.environment.etc."roundcube/config.inc.php".source
+    ];
 
     systemd.services.roundcube-setup = mkMerge [
       (mkIf (cfg.database.host == "localhost") {

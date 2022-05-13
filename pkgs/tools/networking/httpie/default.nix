@@ -1,94 +1,80 @@
-{ stdenv, fetchFromGitHub, python3Packages, docutils, }:
+{ lib
+, fetchFromGitHub
+, installShellFiles
+, python3
+, pandoc
+}:
 
-python3Packages.buildPythonApplication rec {
+python3.pkgs.buildPythonApplication rec {
   pname = "httpie";
-  version = "2.1.0";
+  version = "3.1.0";
+  format = "setuptools";
 
   src = fetchFromGitHub {
-    owner = "jakubroztocil";
+    owner = "httpie";
     repo = "httpie";
     rev = version;
-    sha256 = "1vwjlzx830q4dcm3r7j9cl8yzka37dw42rl1r05m5ysb1081cbj2";
+    hash = "sha256-x7Zucb2i8D4Xbn77eBzSxOAcc2fGg5MFKFiyJhytQ0s=";
   };
 
-  outputs = [ "out" "doc" "man" ];
+  nativeBuildInputs = [
+    installShellFiles
+    pandoc
+  ];
 
-  propagatedBuildInputs = with python3Packages; [ pygments requests setuptools ];
-  dontUseSetuptoolsCheck = true;
-  patches = [ ./strip-venv.patch ];
+  propagatedBuildInputs = with python3.pkgs; [
+    charset-normalizer
+    defusedxml
+    multidict
+    pygments
+    requests
+    requests-toolbelt
+    setuptools
+  ];
 
-  checkInputs = with python3Packages; [
+  checkInputs = with python3.pkgs; [
     mock
     pytest
     pytest-httpbin
+    pytest-lazy-fixture
     pytestCheckHook
+    responses
   ];
 
   postInstall = ''
     # install completions
-    install -Dm555 \
-      extras/httpie-completion.bash \
-      $out/share/bash-completion/completions/http.bash
-    install -Dm555 \
-      extras/httpie-completion.fish \
-      $out/share/fish/vendor_completions.d/http.fish
+    installShellCompletion --bash \
+      --name http.bash extras/httpie-completion.bash
+    installShellCompletion --fish \
+      --name http.fish extras/httpie-completion.fish
 
-    mkdir -p $man/share/man/man1
-
-    docdir=$doc/share/doc/httpie
-    mkdir -p $docdir/html
-
-    cp AUTHORS.rst CHANGELOG.rst CONTRIBUTING.rst $docdir
-
-    # helpfully, the readme has a `no-web` class to exclude
-    # the parts that are not relevant for offline docs
-
-    # this one build link was not marked however
-    sed -e 's/^|build|//g' -i README.rst
-
-    toHtml() {
-      ${docutils}/bin/rst2html5 \
-        --strip-elements-with-class=no-web \
-        --title=http \
-        --no-generator \
-        --no-datestamp \
-        --no-source-link \
-        "$1" \
-        "$2"
-    }
-
-    toHtml README.rst $docdir/html/index.html
-    toHtml CHANGELOG.rst $docdir/html/CHANGELOG.html
-    toHtml CONTRIBUTING.rst $docdir/html/CONTRIBUTING.html
-
-    # change a few links to the local files
-    substituteInPlace $docdir/html/index.html \
-      --replace \
-        'https://github.com/jakubroztocil/httpie/blob/master/CHANGELOG.rst' \
-        "CHANGELOG.html" \
-      --replace \
-        'https://github.com/jakubroztocil/httpie/blob/master/CONTRIBUTING.rst' \
-        "CONTRIBUTING.html"
-
-    ${docutils}/bin/rst2man \
-      --strip-elements-with-class=no-web \
-      --title=http \
-      --no-generator \
-      --no-datestamp \
-      --no-source-link \
-      README.rst \
-      $man/share/man/man1/http.1
+    # convert the docs/README.md file
+    pandoc --standalone -f markdown -t man docs/README.md -o docs/http.1
+    installManPage docs/http.1
   '';
 
-  # the tests call rst2pseudoxml.py from docutils
-  preCheck = ''
-    export PATH=${docutils}/bin:$PATH
-  '';
+  pytestFlagsArray = [
+    "httpie"
+    "tests"
+  ];
 
-  meta = {
+  disabledTests = [
+    "test_chunked"
+    "test_verbose_chunked"
+    "test_multipart_chunked"
+    "test_request_body_from_file_by_path_chunked"
+    # Part of doctest
+    "httpie.encoding.detect_encoding"
+  ];
+
+  pythonImportsCheck = [
+    "httpie"
+  ];
+
+  meta = with lib; {
     description = "A command line HTTP client whose goal is to make CLI human-friendly";
     homepage = "https://httpie.org/";
-    license = stdenv.lib.licenses.bsd3;
-    maintainers = with stdenv.lib.maintainers; [ antono relrod schneefux ];
+    license = licenses.bsd3;
+    maintainers = with maintainers; [ antono relrod schneefux SuperSandro2000 ];
   };
 }

@@ -1,33 +1,30 @@
-{ rustPlatform, fetchFromGitHub, fetchurl, stdenv, lib, nasm }:
+{ lib, rust, stdenv, rustPlatform, fetchCrate, nasm, cargo-c, libiconv }:
 
-rustPlatform.buildRustPackage rec {
+let
+  rustTargetPlatformSpec = rust.toRustTargetSpec stdenv.hostPlatform;
+in rustPlatform.buildRustPackage rec {
   pname = "rav1e";
-  version = "0.3.1";
+  version = "0.5.1";
 
-  src = stdenv.mkDerivation rec {
-    name = "${pname}-${version}-source";
-
-    src = fetchFromGitHub {
-      owner = "xiph";
-      repo = "rav1e";
-      rev = "v${version}";
-      sha256 = "001v29baa77pkab13d7imi71llixyvffqax8kgjwhm1dhsqlm7bl";
-    };
-    cargoLock = fetchurl {
-      url = "https://github.com/xiph/rav1e/releases/download/v${version}/Cargo.lock";
-      sha256 = "06l8jj75ma5kvz1m14x58an2zvx12i6wcq70gzq5k47nvj5l0zax";
-    };
-
-    installPhase = ''
-      mkdir -p $out
-      cp -R ./* $out/
-      cp ${cargoLock} $out/Cargo.lock
-    '';
+  src = fetchCrate {
+    inherit pname version;
+    sha256 = "sha256-v2i/dMWos+nB3cRDOkROSOPb1ONRosbmp9RDZI2DLeI=";
   };
 
-  cargoSha256 = "0n6gkn4iyqk4bijrvcpq884hiihl4mpw1p417w1m0dw7j4y4karn";
+  cargoSha256 = "sha256-V9QbztkFj3t5yBV+yySysDy3Q6IUY4gNzBL8h23aEg4=";
 
-  nativeBuildInputs = [ nasm ];
+  nativeBuildInputs = [ nasm cargo-c ];
+  buildInputs = lib.optionals stdenv.isDarwin [ libiconv ];
+
+  checkType = "debug";
+
+  postBuild = ''
+    cargo cbuild --release --frozen --prefix=${placeholder "out"} --target ${rustTargetPlatformSpec}
+  '';
+
+  postInstall = ''
+    cargo cinstall --release --frozen --prefix=${placeholder "out"} --target ${rustTargetPlatformSpec}
+  '';
 
   meta = with lib; {
     description = "The fastest and safest AV1 encoder";
@@ -37,9 +34,9 @@ rustPlatform.buildRustPackage rec {
       libaom (the reference encoder) is too slow.
       Features: https://github.com/xiph/rav1e#features
     '';
-    inherit (src.src.meta) homepage;
+    homepage = "https://github.com/xiph/rav1e";
+    changelog = "https://github.com/xiph/rav1e/releases/tag/v${version}";
     license = licenses.bsd2;
-    maintainers = [ maintainers.primeos ];
-    platforms = platforms.all;
+    maintainers = [ ];
   };
 }

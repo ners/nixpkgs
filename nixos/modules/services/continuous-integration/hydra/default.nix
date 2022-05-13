@@ -37,8 +37,6 @@ let
 
   haveLocalDB = cfg.dbi == localDB;
 
-  inherit (config.system) stateVersion;
-
   hydra-package =
   let
     makeWrapperArgs = concatStringsSep " " (mapAttrsToList (key: value: "--set \"${key}\" \"${value}\"") hydraEnv);
@@ -91,12 +89,18 @@ in
         example = "dbi:Pg:dbname=hydra;host=postgres.example.org;user=foo;";
         description = ''
           The DBI string for Hydra database connection.
+
+          NOTE: Attempts to set `application_name` will be overridden by
+          `hydra-TYPE` (where TYPE is e.g. `evaluator`, `queue-runner`,
+          etc.) in all hydra services to more easily distinguish where
+          queries are coming from.
         '';
       };
 
       package = mkOption {
         type = types.package;
-        defaultText = "pkgs.hydra";
+        default = pkgs.hydra-unstable;
+        defaultText = literalExpression "pkgs.hydra-unstable";
         description = "The Hydra package.";
       };
 
@@ -151,7 +155,7 @@ in
       smtpHost = mkOption {
         type = types.nullOr types.str;
         default = null;
-        example = ["localhost"];
+        example = "localhost";
         description = ''
           Hostname of the SMTP server to use to send email.
         '';
@@ -199,6 +203,7 @@ in
       buildMachinesFiles = mkOption {
         type = types.listOf types.path;
         default = optional (config.nix.buildMachines != []) "/etc/nix/machines";
+        defaultText = literalExpression ''optional (config.nix.buildMachines != []) "/etc/nix/machines"'';
         example = [ "/etc/nix/machines" "/var/lib/hydra/provisioner/machines" ];
         description = "List of files containing build machines.";
       };
@@ -225,34 +230,6 @@ in
 
   config = mkIf cfg.enable {
 
-    warnings = optional (cfg.package.migration or false) ''
-      You're currently deploying an older version of Hydra which is needed to
-      make some required database changes[1]. As soon as this is done, it's recommended
-      to run `hydra-backfill-ids` and set `services.hydra.package` to `pkgs.hydra-unstable`
-      after that.
-
-      [1] https://github.com/NixOS/hydra/pull/711
-    '';
-
-    services.hydra.package = with pkgs;
-      mkDefault (
-        if pkgs ? hydra
-          then throw ''
-            The Hydra package doesn't exist anymore in `nixpkgs`! It probably exists
-            due to an overlay. To upgrade Hydra, you need to take two steps as some
-            bigger changes in the database schema were implemented recently[1]. You first
-            need to deploy `pkgs.hydra-migration`, run `hydra-backfill-ids` on the server
-            and then deploy `pkgs.hydra-unstable`.
-
-            If you want to use `pkgs.hydra` from your overlay, please set `services.hydra.package`
-            explicitly to `pkgs.hydra` and make sure you know what you're doing.
-
-            [1] https://github.com/NixOS/hydra/pull/711
-          ''
-        else if versionOlder stateVersion "20.03" then hydra-migration
-        else hydra-unstable
-      );
-
     users.groups.hydra = {
       gid = config.ids.gids.hydra;
     };
@@ -260,7 +237,7 @@ in
     users.users.hydra =
       { description = "Hydra";
         group = "hydra";
-        createHome = true;
+        # We don't enable `createHome` here because the creation of the home directory is handled by the hydra-init service below.
         home = baseDir;
         useDefaultShell = true;
         uid = config.ids.uids.hydra;
@@ -281,8 +258,6 @@ in
         uid = config.ids.uids.hydra-www;
       };
 
-    nix.trustedUsers = [ "hydra-queue-runner" ];
-
     services.hydra.extraConfig =
       ''
         using_frontend_proxy = 1
@@ -300,33 +275,42 @@ in
 
     environment.variables = hydraEnv;
 
-    nix.extraOptions = ''
-      keep-outputs = true
-      keep-derivations = true
+    nix.settings = mkMerge [
+      {
+        keep-outputs = true;
+        keep-derivations = true;
+        trusted-users = [ "hydra-queue-runner" ];
+      }
 
-      # The default (`true') slows Nix down a lot since the build farm
-      # has so many GC roots.
-      gc-check-reachability = false
-    '';
+      (mkIf (versionOlder (getVersion config.nix.package.out) "2.4pre")
+        {
+          # The default (`true') slows Nix down a lot since the build farm
+          # has so many GC roots.
+          gc-check-reachability = false;
+        }
+      )
+    ];
 
     systemd.services.hydra-init =
       { wantedBy = [ "multi-user.target" ];
         requires = optional haveLocalDB "postgresql.service";
         after = optional haveLocalDB "postgresql.service";
-        environment = env;
+        environment = env // {
+          HYDRA_DBI = "${env.HYDRA_DBI};application_name=hydra-init";
+        };
         preStart = ''
           mkdir -p ${baseDir}
-          chown hydra.hydra ${baseDir}
+          chown hydra:hydra ${baseDir}
           chmod 0750 ${baseDir}
 
           ln -sf ${hydraConf} ${baseDir}/hydra.conf
 
           mkdir -m 0700 -p ${baseDir}/www
-          chown hydra-www.hydra ${baseDir}/www
+          chown hydra-www:hydra ${baseDir}/www
 
           mkdir -m 0700 -p ${baseDir}/queue-runner
           mkdir -m 0750 -p ${baseDir}/build-logs
-          chown hydra-queue-runner.hydra ${baseDir}/queue-runner ${baseDir}/build-logs
+          chown hydra-queue-runner:hydra ${baseDir}/queue-runner ${baseDir}/build-logs
 
           ${optionalString haveLocalDB ''
             if ! [ -e ${baseDir}/.db-created ]; then
@@ -354,7 +338,7 @@ in
             rmdir /nix/var/nix/gcroots/per-user/hydra-www/hydra-roots
           fi
 
-          chown hydra.hydra ${cfg.gcRootsDir}
+          chown hydra:hydra ${cfg.gcRootsDir}
           chmod 2775 ${cfg.gcRootsDir}
         '';
         serviceConfig.ExecStart = "${hydra-package}/bin/hydra-init";
@@ -368,7 +352,9 @@ in
       { wantedBy = [ "multi-user.target" ];
         requires = [ "hydra-init.service" ];
         after = [ "hydra-init.service" ];
-        environment = serverEnv;
+        environment = serverEnv // {
+          HYDRA_DBI = "${serverEnv.HYDRA_DBI};application_name=hydra-server";
+        };
         restartTriggers = [ hydraConf ];
         serviceConfig =
           { ExecStart =
@@ -390,6 +376,7 @@ in
         environment = env // {
           PGPASSFILE = "${baseDir}/pgpass-queue-runner"; # grrr
           IN_SYSTEMD = "1"; # to get log severity levels
+          HYDRA_DBI = "${env.HYDRA_DBI};application_name=hydra-queue-runner";
         };
         serviceConfig =
           { ExecStart = "@${hydra-package}/bin/hydra-queue-runner hydra-queue-runner -v";
@@ -409,7 +396,9 @@ in
         after = [ "hydra-init.service" "network.target" ];
         path = with pkgs; [ hydra-package nettools jq ];
         restartTriggers = [ hydraConf ];
-        environment = env;
+        environment = env // {
+          HYDRA_DBI = "${env.HYDRA_DBI};application_name=hydra-evaluator";
+        };
         serviceConfig =
           { ExecStart = "@${hydra-package}/bin/hydra-evaluator hydra-evaluator";
             User = "hydra";
@@ -421,7 +410,9 @@ in
     systemd.services.hydra-update-gc-roots =
       { requires = [ "hydra-init.service" ];
         after = [ "hydra-init.service" ];
-        environment = env;
+        environment = env // {
+          HYDRA_DBI = "${env.HYDRA_DBI};application_name=hydra-update-gc-roots";
+        };
         serviceConfig =
           { ExecStart = "@${hydra-package}/bin/hydra-update-gc-roots hydra-update-gc-roots";
             User = "hydra";
@@ -432,7 +423,9 @@ in
     systemd.services.hydra-send-stats =
       { wantedBy = [ "multi-user.target" ];
         after = [ "hydra-init.service" ];
-        environment = env;
+        environment = env // {
+          HYDRA_DBI = "${env.HYDRA_DBI};application_name=hydra-send-stats";
+        };
         serviceConfig =
           { ExecStart = "@${hydra-package}/bin/hydra-send-stats hydra-send-stats";
             User = "hydra";
@@ -446,6 +439,7 @@ in
         restartTriggers = [ hydraConf ];
         environment = env // {
           PGPASSFILE = "${baseDir}/pgpass-queue-runner";
+          HYDRA_DBI = "${env.HYDRA_DBI};application_name=hydra-notify";
         };
         serviceConfig =
           { ExecStart = "@${hydra-package}/bin/hydra-notify hydra-notify";

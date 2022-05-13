@@ -1,36 +1,61 @@
-{ lib, buildPythonPackage, fetchFromGitHub, fetchpatch
-, acme, aiohttp, snitun, attrs, pycognito, warrant
-, pytest-aiohttp, asynctest, pytest  }:
+{ lib
+, acme
+, aiohttp
+, asynctest
+, atomicwrites
+, attrs
+, buildPythonPackage
+, fetchFromGitHub
+, pycognito
+, pytest-aiohttp
+, pytestCheckHook
+, snitun
+, warrant
+}:
 
 buildPythonPackage rec {
   pname = "hass-nabucasa";
-  version = "0.32.2";
+  version = "0.54.0";
 
   src = fetchFromGitHub {
     owner = "nabucasa";
     repo = pname;
     rev = version;
-    sha256 = "1hfi5q222kgbgrj5yvr4lbhca49hcs6sc2yhxc4pjxqsc12bv1f1";
+    sha256 = "sha256-UL7HPmii65p+WO22y0qv8zq3yICKarRORqE+FK1u7OE=";
   };
 
-  # upstreamed in https://github.com/NabuCasa/hass-nabucasa/pull/119
   postPatch = ''
-    sed -i 's/"acme.*/"acme>=0.40.0,<2.0"/' setup.py
-    cat setup.py
+    sed -i 's/"acme.*"/"acme"/' setup.py
+    substituteInPlace setup.py \
+      --replace "cryptography>=2.8,<4.0" "cryptography" \
+      --replace "snitun==" "snitun>=" \
+      --replace "pycognito==2022.01.0" "pycognito"
   '';
 
-  propagatedBuildInputs = [ acme aiohttp snitun attrs warrant pycognito ];
+  propagatedBuildInputs = [
+    acme
+    aiohttp
+    atomicwrites
+    attrs
+    pycognito
+    snitun
+    warrant
+  ];
 
-  checkInputs = [ pytest pytest-aiohttp asynctest ];
+  doCheck = lib.versionAtLeast pytest-aiohttp.version "1.0.0";
 
-  checkPhase = ''
-    pytest tests/
-  '';
+  checkInputs = [
+    asynctest
+    pytest-aiohttp
+    pytestCheckHook
+  ];
+
+  pythonImportsCheck = [ "hass_nabucasa" ];
 
   meta = with lib; {
     homepage = "https://github.com/NabuCasa/hass-nabucasa";
-    description = "Home Assistant cloud integration by Nabu Casa, inc.";
-    license = licenses.gpl3;
+    description = "Python module for the Home Assistant cloud integration";
+    license = licenses.gpl3Only;
     maintainers = with maintainers; [ Scriptkiddi ];
   };
 }

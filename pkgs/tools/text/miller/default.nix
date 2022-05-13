@@ -1,24 +1,32 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, flex, libtool }:
+{ lib, fetchFromGitHub, buildGoModule }:
 
-stdenv.mkDerivation rec {
+buildGoModule rec {
   pname = "miller";
-
-  version = "5.7.0";
+  version = "6.2.0";
 
   src = fetchFromGitHub {
     owner = "johnkerl";
     repo = "miller";
-    rev = "v${version}";
-    sha256 = "1lmin69rf9lp3b64ga7li4sz7mm0gqapsbk1nb29l4fqjxk16ddh";
+    # NOTE: The tag v6.2.0 has still old version number, as reported by
+    #       `mlr --version`. This is the current head of the 6.2.0 branch, with
+    #       the correct version number.
+    #
+    #       For future releases please check if we can use
+    #       `rev = "v${version}"` again.
+    rev = "a6dc231eefc209eb66b50b0773542c2e63501bba";
+    sha256 = "sha256-hMWcf43o1wiVjHsgH+ZDBny5vlZQkKyoJN5np4gUy4w=";
   };
 
-  nativeBuildInputs = [ autoreconfHook flex libtool ];
+  vendorSha256 = "sha256-2tl/twzkvWB1lnvi3fIptM77zi0lmAn7Pzoe0/lW6o4=";
 
-  meta = with stdenv.lib; {
-    description = "Miller is like awk, sed, cut, join, and sort for name-indexed data such as CSV, TSV, and tabular JSON.";
-    homepage    = "http://johnkerl.org/miller/";
+  subPackages = [ "cmd/mlr" ];
+
+  meta = with lib; {
+    description = "Like awk, sed, cut, join, and sort for data formats such as CSV, TSV, JSON, JSON Lines, and positionally-indexed";
+    homepage    = "https://github.com/johnkerl/miller";
     license     = licenses.bsd2;
     maintainers = with maintainers; [ mstarzyk ];
+    mainProgram = "mlr";
     platforms   = platforms.all;
   };
 }

@@ -1,16 +1,29 @@
-{ stdenv, fetchurl, libev, buildDunePackage, zed, lwt_log, lwt_react }:
+{ lib, fetchFromGitHub, buildDunePackage, ocaml, zed, lwt_log, lwt_react, mew_vi }:
+
+let params =
+  if lib.versionAtLeast ocaml.version "4.08" then {
+    version = "3.2.0";
+    sha256 = "sha256:048k26644wq5wlwk0j179dxrxyz9nxqqq4vvhyh6pqpgxdajd44i";
+  } else {
+    version = "3.1.0";
+    sha256 = "1k0ykiz0vhpyyj9fkss29ajas4fh1xh449j702xkvayqipzj1mkg";
+  }
+; in
 
 buildDunePackage rec {
   pname = "lambda-term";
-  version = "2.0.3";
+  inherit (params) version;
 
-  src = fetchurl {
-    url = "https://github.com/ocaml-community/lambda-term/releases/download/${version}/lambda-term-${version}.tbz";
-    sha256 = "1n1b3ffj41a1lm2315hh870yj9h8gg8g9jcxha6dr3xx8r84np3v";
+  useDune2 = true;
+
+  src = fetchFromGitHub {
+    owner = "ocaml-community";
+    repo = pname;
+    rev = version;
+    inherit (params) sha256;
   };
 
-  buildInputs = [ libev ];
-  propagatedBuildInputs = [ zed lwt_log lwt_react ];
+  propagatedBuildInputs = [ zed lwt_log lwt_react mew_vi ];
 
   meta = { description = "Terminal manipulation library for OCaml";
     longDescription = ''
@@ -28,10 +41,10 @@ buildDunePackage rec {
     console applications.
     '';
 
-    homepage = "https://github.com/diml/lambda-term";
-    license = stdenv.lib.licenses.bsd3;
+    inherit (src.meta) homepage;
+    license = lib.licenses.bsd3;
     maintainers = [
-      stdenv.lib.maintainers.gal_bolle
+      lib.maintainers.gal_bolle
     ];
   };
 }

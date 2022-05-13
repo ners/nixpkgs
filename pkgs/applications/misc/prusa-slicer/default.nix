@@ -1,17 +1,16 @@
-{ stdenv, lib, fetchFromGitHub, cmake, pkgconfig
-, boost, cereal, curl, eigen, expat, glew, libpng, tbb, wxGTK31
-, gtest, nlopt, xorg, makeDesktopItem
-, cgal_5, gmp, ilmbase, mpfr, qhull, openvdb, systemd
+{ stdenv, lib, fetchFromGitHub, cmake, copyDesktopItems, makeDesktopItem, pkg-config, wrapGAppsHook
+, boost, cereal, cgal_5, curl, dbus, eigen, expat, glew, glib, gmp, gtest, gtk3, hicolor-icon-theme
+, ilmbase, libpng, mpfr, nlopt, openvdb, pcre, qhull, systemd, tbb, wxGTK31-gtk3, xorg, fetchpatch
 }:
 stdenv.mkDerivation rec {
   pname = "prusa-slicer";
-  version = "2.2.0";
-
-  enableParallelBuilding = true;
+  version = "2.4.2";
 
   nativeBuildInputs = [
     cmake
-    pkgconfig
+    copyDesktopItems
+    pkg-config
+    wrapGAppsHook
   ];
 
   buildInputs = [
@@ -19,22 +18,38 @@ stdenv.mkDerivation rec {
     cereal
     cgal_5
     curl
+    dbus
     eigen
     expat
     glew
+    glib
     gmp
+    gtk3
+    hicolor-icon-theme
     ilmbase
     libpng
     mpfr
     nlopt
     openvdb
+    pcre
     systemd
     tbb
-    wxGTK31
+    wxGTK31-gtk3
     xorg.libX11
   ] ++ checkInputs;
 
+  patches = [
+    # Fix detection of TBB, see https://github.com/prusa3d/PrusaSlicer/issues/6355
+    (fetchpatch {
+      url = "https://github.com/prusa3d/PrusaSlicer/commit/76f4d6fa98bda633694b30a6e16d58665a634680.patch";
+      sha256 = "1r806ycp704ckwzgrw1940hh1l6fpz0k1ww3p37jdk6mygv53nv6";
+    })
+  ];
+
+  doCheck = true;
   checkInputs = [ gtest ];
+
+  separateDebugInfo = true;
 
   # The build system uses custom logic - defined in
   # cmake/modules/FindNLopt.cmake in the package source - for finding the nlopt
@@ -51,11 +66,6 @@ stdenv.mkDerivation rec {
   NIX_LDFLAGS = "-ludev";
 
   prePatch = ''
-    # In nix ioctls.h isn't available from the standard kernel-headers package
-    # like in other distributions. The copy in glibc seems to be identical to the
-    # one in the kernel though, so we use that one instead.
-    sed -i 's|"/usr/include/asm-generic/ioctls.h"|<asm-generic/ioctls.h>|g' src/libslic3r/GCodeSender.cpp
-
     # Since version 2.5.0 of nlopt we need to link to libnlopt, as libnlopt_cxx
     # now seems to be integrated into the main lib.
     sed -i 's|nlopt_cxx|nlopt|g' cmake/modules/FindNLopt.cmake
@@ -64,32 +74,45 @@ stdenv.mkDerivation rec {
   src = fetchFromGitHub {
     owner = "prusa3d";
     repo = "PrusaSlicer";
-    sha256 = "0954k9sm09y8qnz1jyswyysg10k54ywz8mswnwa4n2hnpq9qx73m";
+    sha256 = "17p56f0zmiryy8k4da02in1l6yxniz286gf9yz8s1gaz5ksqj4af";
     rev = "version_${version}";
   };
 
   cmakeFlags = [
     "-DSLIC3R_FHS=1"
+    "-DSLIC3R_GTK=3"
   ];
 
   postInstall = ''
+    ln -s "$out/bin/prusa-slicer" "$out/bin/prusa-gcodeviewer"
+
     mkdir -p "$out/share/pixmaps/"
     ln -s "$out/share/PrusaSlicer/icons/PrusaSlicer.png" "$out/share/pixmaps/PrusaSlicer.png"
-    mkdir -p "$out/share/applications"
-    cp "$desktopItem"/share/applications/* "$out/share/applications/"
+    ln -s "$out/share/PrusaSlicer/icons/PrusaSlicer-gcodeviewer_192px.png" "$out/share/pixmaps/PrusaSlicer-gcodeviewer.png"
   '';
 
-  desktopItem = makeDesktopItem {
-    name = "PrusaSlicer";
-    exec = "prusa-slicer";
-    icon = "PrusaSlicer";
-    comment = "G-code generator for 3D printers";
-    desktopName = "PrusaSlicer";
-    genericName = "3D printer tool";
-    categories = "Application;Development;";
-  };
+  desktopItems = [
+    (makeDesktopItem {
+      name = "prusa-slicer";
+      exec = "prusa-slicer";
+      icon = "PrusaSlicer";
+      comment = "G-code generator for 3D printers";
+      desktopName = "PrusaSlicer";
+      genericName = "3D printer tool";
+      categories = [ "Development" ];
+    })
+    (makeDesktopItem {
+      name = "prusa-gcodeviewer";
+      exec = "prusa-gcodeviewer";
+      icon = "PrusaSlicer-gcodeviewer";
+      comment = "G-code viewer for 3D printers";
+      desktopName = "PrusaSlicer G-code Viewer";
+      genericName = "G-code Viewer";
+      categories = [ "Development" ];
+    })
+  ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "G-code generator for 3D printer";
     homepage = "https://github.com/prusa3d/PrusaSlicer";
     license = licenses.agpl3;

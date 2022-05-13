@@ -1,29 +1,55 @@
-{ stdenv, buildPythonPackage, pythonOlder, fetchFromGitHub, async-timeout, pytest, pytest-asyncio }:
+{ lib
+, stdenv
+, async-timeout
+, buildPythonPackage
+, fetchFromGitHub
+, pytest-asyncio
+, pytestCheckHook
+, pythonOlder
+, fetchpatch
+}:
+
 buildPythonPackage rec {
-  version = "3.2.7";
+  version = "3.5.0";
   pname = "asgiref";
+  format = "setuptools";
 
-  disabled = pythonOlder "3.5";
+  disabled = pythonOlder "3.7";
 
-  # PyPI tarball doesn't include tests directory
   src = fetchFromGitHub {
     owner = "django";
     repo = pname;
     rev = version;
-    sha256 = "1qf29blzhh6sljaj1adc0p8cnyxh9ar6hky9ccdfbgmrk4rw5kwc";
+    sha256 = "sha256-eWDsd8iWK1C/X3t/fKAM1i4hyTM/daGTd8CDSgDTL/U=";
   };
 
-  propagatedBuildInputs = [ async-timeout ];
+  patches = [
+    (fetchpatch {
+      name = "remove-sock-nonblock-in-tests.patch";
+      url = "https://github.com/django/asgiref/commit/d451a724c93043b623e83e7f86743bbcd9a05c45.patch";
+      sha256 = "0whdsn5isln4dqbqqngvsy4yxgaqgpnziz0cndj1zdxim8cdicj7";
+    })
+  ];
 
-  checkInputs = [ pytest pytest-asyncio ];
+  propagatedBuildInputs = [
+    async-timeout
+  ];
 
-  checkPhase = ''
-    py.test
-  '';
+  checkInputs = [
+    pytestCheckHook
+    pytest-asyncio
+  ];
 
-  meta = with stdenv.lib; {
+  disabledTests = lib.optionals stdenv.isDarwin [
+    "test_multiprocessing"
+  ];
+
+  pythonImportsCheck = [ "asgiref" ];
+
+  meta = with lib; {
     description = "Reference ASGI adapters and channel layers";
-    license = licenses.bsd3;
     homepage = "https://github.com/django/asgiref";
+    license = licenses.bsd3;
+    maintainers = with maintainers; [ SuperSandro2000 ];
   };
 }

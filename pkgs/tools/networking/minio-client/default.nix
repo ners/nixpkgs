@@ -1,26 +1,36 @@
-{ stdenv, buildGoModule, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub }:
 
 buildGoModule rec {
   pname = "minio-client";
-  version = "2020-04-25T00-43-23Z";
+  version = "2022-03-17T20-25-06Z";
 
   src = fetchFromGitHub {
     owner = "minio";
     repo = "mc";
     rev = "RELEASE.${version}";
-    sha256 = "0ff2fyr3787zp0lpgbph064am33py2wzjikzmxd3zwp3y0dic770";
+    sha256 = "sha256-+MfRosEyIaQ5RndpAeK5AXm8EHX2ND7VJcr1NVFs5TI=";
   };
 
-  vendorSha256 = "0nfcxz47v5gl0wih59xarhz82nd8wy61c3ijvg2v08ipk29zivcc";
+  vendorSha256 = "sha256-Wdw9mZ3UupoJ4yDwS4f3mOmCn+7TvHmx4aRu+96pHM4=";
 
   subPackages = [ "." ];
 
-  buildFlagsArray = [ "-ldflags=-s -w -X github.com/minio/mc/cmd.Version=${version}" ];
+  patchPhase = ''
+    sed -i "s/Version.*/Version = \"${version}\"/g" cmd/build-constants.go
+    sed -i "s/ReleaseTag.*/ReleaseTag = \"RELEASE.${version}\"/g" cmd/build-constants.go
+    sed -i "s/CommitID.*/CommitID = \"${src.rev}\"/g" cmd/build-constants.go
+  '';
 
-  meta = with stdenv.lib; {
+  doInstallCheck = true;
+  installCheckPhase = ''
+    $out/bin/mc --version | grep ${version} > /dev/null
+  '';
+
+  meta = with lib; {
     homepage = "https://github.com/minio/mc";
     description = "A replacement for ls, cp, mkdir, diff and rsync commands for filesystems and object storage";
-    maintainers = with maintainers; [ eelco bachp ];
+    maintainers = with maintainers; [ bachp eelco ];
+    mainProgram = "mc";
     platforms = platforms.unix;
     license = licenses.asl20;
   };

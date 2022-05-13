@@ -1,26 +1,26 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, python
-, isPy3k
 , msrestazure
 , azure-common
+, azure-mgmt-core
 , azure-mgmt-nspkg
 }:
 
 buildPythonPackage rec {
   pname = "azure-mgmt-consumption";
-  version = "3.0.0";
+  version = "9.0.0";
 
   src = fetchPypi {
     inherit pname version;
     extension = "zip";
-    sha256 = "0nqgywknpj2a69an5yrn0c32fk01v5gi05za7dlf4ivwr9s4np83";
+    sha256 = "76f9566390721226add96c9d3020ab986d3e5fd81e3143c098f57262c6ce4a51";
   };
 
   propagatedBuildInputs = [
     msrestazure
     azure-common
+    azure-mgmt-core
     azure-mgmt-nspkg
   ];
 
@@ -33,6 +33,6 @@ buildPythonPackage rec {
     description = "This is the Microsoft Azure Consumption Management Client Library";
     homepage = "https://github.com/Azure/azure-sdk-for-python";
     license = licenses.mit;
-    maintainers = with maintainers; [ mwilsoninsight ];
+    maintainers = with maintainers; [ maxwilson ];
   };
 }

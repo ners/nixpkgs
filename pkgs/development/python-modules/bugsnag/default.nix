@@ -1,28 +1,37 @@
-{ stdenv
+{ lib
 , buildPythonPackage
 , fetchPypi
-, six
+, pythonOlder
 , webob
 }:
 
 buildPythonPackage rec {
   pname = "bugsnag";
-  version = "3.6.0";
+  version = "4.2.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.5";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "17cjh7g8gbr0gb22nzybkw7vq9x5wfa5ln94hhzijbz934bw1f37";
+    hash = "sha256-NnTn4m9we40Ww2abP7mbz1CtdypZyN2GYBvj8zxhOpI=";
   };
 
-  propagatedBuildInputs = [ six webob ];
+  propagatedBuildInputs = [
+    webob
+  ];
+
+  pythonImportsCheck = [
+    "bugsnag"
+  ];
 
   # no tests
   doCheck = false;
 
-  meta = with stdenv.lib; {
-    description = "Automatic error monitoring for django, flask, etc.";
-    homepage = "https://www.bugsnag.com";
+  meta = with lib; {
+    description = "Automatic error monitoring for Python applications";
+    homepage = "https://github.com/bugsnag/bugsnag-python";
     license = licenses.mit;
-    platforms = platforms.unix;
+    maintainers = with maintainers; [ ];
   };
 }

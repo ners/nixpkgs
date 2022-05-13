@@ -1,43 +1,55 @@
 { lib
 , buildPythonPackage
+, cmake
 , fetchPypi
 , isPy3k
 , pytest
 , pytest-pylint
 , nbconvert
-, jupyter_client
+, joblib
+, jupyter-client
 , numpy
 , scipy
 , pandas
 , matplotlib
+, ninja
 , numba
+, pybind11
 }:
 
 buildPythonPackage rec {
   pname = "phik";
-  version = "0.9.8";
-  format = "wheel";
+  version = "0.12.2";
   disabled = !isPy3k;
 
   src = fetchPypi {
-    inherit pname version format;
-    python = "py3";
-    sha256 = "c398452c5c1eea153905666b289c6a153712cf3d58811fa41e2bbbd27a65d678";
+    inherit pname version;
+    sha256 = "sha256-sGdOuCnSMpBDP3GNI2ASK+gEsXDMyAetnZqNHBOYVTM=";
   };
 
   checkInputs = [
     pytest
     pytest-pylint
     nbconvert
-    jupyter_client
+    jupyter-client
   ];
 
   propagatedBuildInputs = [
+    joblib
     numpy
     scipy
     pandas
     matplotlib
     numba
+    pybind11
+  ];
+
+  # uses setuptools to drive build process
+  dontUseCmakeConfigure = true;
+
+  nativeBuildInputs = [
+    cmake
+    ninja
   ];
 
   postInstall = ''

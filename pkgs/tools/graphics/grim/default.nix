@@ -1,31 +1,32 @@
-{ stdenv, fetchFromGitHub, cairo, libjpeg, meson, ninja, wayland, pkgconfig, scdoc, wayland-protocols }:
+{ lib, stdenv, fetchFromSourcehut, pixman, libpng, libjpeg, meson, ninja, wayland, pkg-config, scdoc, wayland-protocols }:
 
 stdenv.mkDerivation rec {
   pname = "grim";
-  version = "1.3.0";
+  version = "1.4.0";
 
-  src = fetchFromGitHub {
-    owner = "emersion";
+  src = fetchFromSourcehut {
+    owner = "~emersion";
     repo = pname;
     rev = "v${version}";
-    sha256 = "14gqilgd27c4j2wn7fla72yj8syx0542rsanh61syikrv0hxgkvy";
+    sha256 = "sha256-lwJn1Lysv1qLauqmrduUlzdoKUrUM5uBjv+dWSsrM6w=";
   };
 
   nativeBuildInputs = [
     meson
     ninja
-    pkgconfig
+    pkg-config
     scdoc
   ];
 
   buildInputs = [
-    cairo
+    pixman
+    libpng
     libjpeg
     wayland
     wayland-protocols
   ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Grab images from a Wayland compositor";
     homepage = "https://github.com/emersion/grim";
     license = licenses.mit;

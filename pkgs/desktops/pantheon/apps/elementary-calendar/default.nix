@@ -1,45 +1,37 @@
-{ stdenv
+{ lib
+, stdenv
 , fetchFromGitHub
-, pantheon
-, pkgconfig
+, nix-update-script
+, appstream-glib
+, desktop-file-utils
 , meson
 , ninja
-, vala
-, desktop-file-utils
-, gtk3
-, granite
-, libgee
-, geoclue2
-, libchamplain
-, clutter
-, folks
-, geocode-glib
+, pkg-config
 , python3
-, libnotify
-, libical
-, evolution-data-server
-, appstream-glib
-, elementary-icon-theme
+, vala
 , wrapGAppsHook
+, clutter
+, evolution-data-server
+, folks
+, geoclue2
+, geocode-glib
+, granite
+, gtk3
+, libchamplain
+, libgee
+, libhandy
+, libical
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-calendar";
-  version = "5.0.4";
-
-  repoName = "calendar";
+  version = "6.1.0";
 
   src = fetchFromGitHub {
     owner = "elementary";
-    repo = repoName;
+    repo = "calendar";
     rev = version;
-    sha256 = "0ywk9w6d6nw7ir3f11xc13fr08ifvzpavq1c3x48kmmf69ywprdk";
-  };
-
-  passthru = {
-    updateScript = pantheon.updateScript {
-      attrPath = "pantheon.${pname}";
-    };
+    sha256 = "sha256-LaVJ7QLc0UdSLgLIuHP4Anc7kPUelZW9PnIWuqKGtEQ=";
   };
 
   nativeBuildInputs = [
@@ -47,7 +39,7 @@ stdenv.mkDerivation rec {
     desktop-file-utils
     meson
     ninja
-    pkgconfig
+    pkg-config
     python3
     vala
     wrapGAppsHook
@@ -55,7 +47,6 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     clutter
-    elementary-icon-theme
     evolution-data-server
     folks
     geoclue2
@@ -64,8 +55,8 @@ stdenv.mkDerivation rec {
     gtk3
     libchamplain
     libgee
+    libhandy
     libical
-    libnotify
   ];
 
   postPatch = ''
@@ -73,11 +64,18 @@ stdenv.mkDerivation rec {
     patchShebangs meson/post_install.py
   '';
 
-  meta = with stdenv.lib; {
+  passthru = {
+    updateScript = nix-update-script {
+      attrPath = "pantheon.${pname}";
+    };
+  };
+
+  meta = with lib; {
     description = "Desktop calendar app designed for elementary OS";
     homepage = "https://github.com/elementary/calendar";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    maintainers = pantheon.maintainers;
+    maintainers = teams.pantheon.members;
+    mainProgram = "io.elementary.calendar";
   };
 }

@@ -1,42 +1,60 @@
-{ stdenv
-, fetchPypi
+{ lib
+, APScheduler
 , buildPythonPackage
+, cachetools
 , certifi
 , decorator
+, fetchPypi
 , future
-, urllib3
 , tornado
-, pytest
-, isPy3k
+, urllib3
+, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "python-telegram-bot";
-  version = "12.7";
-  disabled = !isPy3k;
+  version = "13.11";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1vwf4pgjrg9a6w51ds9wmzq31bmi3f7xs79gdzzfxfmqmy1hb2r1";
+    sha256 = "sha256-uu/3BLqirD3BepRMAtqIgiitJY6Jvi5by9E6ilEC1XM=";
   };
 
-  checkInputs = [ pytest ];
-  propagatedBuildInputs = [ certifi future urllib3 tornado decorator ];
+  propagatedBuildInputs = [
+    APScheduler
+    cachetools
+    certifi
+    decorator
+    future
+    tornado
+    urllib3
+  ];
 
   # --with-upstream-urllib3 is not working properly
   postPatch = ''
-    rm -rf telegram/vendor
+    rm -r telegram/vendor
+
+    substituteInPlace requirements.txt \
+      --replace "APScheduler==3.6.3" "APScheduler" \
+      --replace "cachetools==4.2.2" "cachetools"
   '';
+
   setupPyGlobalFlags = "--with-upstream-urllib3";
 
   # tests not included with release
   doCheck = false;
-  pythonImportsCheck = [ "telegram" ];
 
-  meta = with stdenv.lib; {
-    description = "This library provides a pure Python interface for the Telegram Bot API.";
+  pythonImportsCheck = [
+    "telegram"
+  ];
+
+  meta = with lib; {
+    description = "Python library to interface with the Telegram Bot API";
     homepage = "https://python-telegram-bot.org";
-    license = licenses.lgpl3;
+    license = licenses.lgpl3Only;
     maintainers = with maintainers; [ veprbl pingiun ];
   };
 }

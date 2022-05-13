@@ -1,41 +1,62 @@
-{ stdenv, buildGoModule, fetchFromGitHub, makeDesktopItem }:
+{ lib
+, stdenv
+, substituteAll
+, buildGoModule
+, fetchFromGitHub
+, makeDesktopItem
+, makeWrapper
+, libnotify
+, olm
+, pulseaudio
+, sound-theme-freedesktop
+}:
 
 buildGoModule rec {
   pname = "gomuks";
-  version = "2020-03-20";
-
-  goPackagePath = "maunium.net/go/gomuks";
-  patches = [ ./gomod.patch ];
+  version = "0.2.4";
 
   src = fetchFromGitHub {
     owner = "tulir";
     repo = pname;
-    rev = "bce30e32a049b3ee76081c8d3881a3820b0e7341";
-    sha256 = "0f7i88vrvl1xl4hmjplq3wwihqwijbgxy6nk5fkvc8pfmm5hsjcs";
+    rev = "v${version}";
+    sha256 = "bTOfnEmJHTuniewH//SugNNDuKIFMQb1Safs0UVKH1c=";
   };
 
-  vendorSha256 = "0awiw41nzgp4gj9fd8lcgk880aa07n535jksn0ya1cmsgavcfbvc";
+  vendorSha256 = "PuNROoxL7UmcuYDgfnsMUsGk9i1jnQyWtaUmT7vXdKE=";
+
+  doCheck = false;
+
+  nativeBuildInputs = [ makeWrapper ];
+  buildInputs = [ olm ];
+
+  # Upstream issue: https://github.com/tulir/gomuks/issues/260
+  patches = lib.optional stdenv.isLinux (substituteAll {
+    src = ./hardcoded_path.patch;
+    soundTheme = sound-theme-freedesktop;
+  });
 
   postInstall = ''
     cp -r ${
       makeDesktopItem {
         name = "net.maunium.gomuks.desktop";
         exec = "@out@/bin/gomuks";
-        terminal = "true";
+        terminal = true;
         desktopName = "Gomuks";
         genericName = "Matrix client";
-        categories = "Network;Chat";
+        categories = [ "Network" "Chat" ];
         comment = meta.description;
       }
     }/* $out/
     substituteAllInPlace $out/share/applications/*
+    wrapProgram $out/bin/gomuks \
+      --prefix PATH : "${lib.makeBinPath (lib.optionals stdenv.isLinux [ libnotify pulseaudio ])}"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://maunium.net/go/gomuks/";
     description = "A terminal based Matrix client written in Go";
-    license = licenses.gpl3;
-    maintainers = with maintainers; [ tilpner emily ];
+    license = licenses.agpl3Plus;
+    maintainers = with maintainers; [ chvp emily ];
     platforms = platforms.unix;
   };
 }

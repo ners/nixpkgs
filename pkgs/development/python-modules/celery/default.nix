@@ -1,37 +1,92 @@
-{ lib, buildPythonPackage, fetchPypi, libredirect
-, case, pytest, boto3, moto, kombu, billiard, pytz, anyjson, amqp, eventlet
+{ lib
+, billiard
+, boto3
+, buildPythonPackage
+, case
+, click
+, click-didyoumean
+, click-plugins
+, click-repl
+, dnspython
+, fetchPypi
+, kombu
+, moto
+, pymongo
+, pytest-celery
+, pytest-subtests
+, pytest-timeout
+, pytestCheckHook
+, pythonOlder
+, pytz
+, vine
+, nixosTests
 }:
 
 buildPythonPackage rec {
   pname = "celery";
-  version = "4.4.2";
+  version = "5.2.6";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0ps1c6ill7q0m5kzb87hisgshdk3kzpa6cvcjch1d1wa07whp2hh";
+    hash = "sha256-0TmMrfMPV2Jms0Nw4o6IAwbsVfektjB1SbCunBVmNIE=";
   };
 
+  propagatedBuildInputs = [
+    billiard
+    click
+    click-didyoumean
+    click-plugins
+    click-repl
+    kombu
+    pytz
+    vine
+  ];
+
+  checkInputs = [
+    boto3
+    case
+    dnspython
+    moto
+    pymongo
+    pytest-celery
+    pytest-subtests
+    pytest-timeout
+    pytestCheckHook
+  ];
+
   postPatch = ''
-    substituteInPlace requirements/test.txt \
-      --replace "moto==1.3.7" moto \
-      --replace "pytest>=4.3.1,<4.4.0" pytest
+    substituteInPlace requirements/default.txt \
+      --replace "setuptools>=59.1.1,<59.7.0" "setuptools"
   '';
 
-  # ignore test that's incompatible with pytest5
-  # test_eventlet touches network
-  # test_mongodb requires pymongo
-  checkPhase = ''
-    pytest -k 'not restore_current_app_fallback and not msgpack and not on_apply' \
-      --ignore=t/unit/concurrency/test_eventlet.py \
-      --ignore=t/unit/backends/test_mongodb.py
-  '';
+  disabledTestPaths = [
+    # test_eventlet touches network
+    "t/unit/concurrency/test_eventlet.py"
+    # test_multi tries to create directories under /var
+    "t/unit/bin/test_multi.py"
+    "t/unit/apps/test_multi.py"
+  ];
 
-  checkInputs = [ case pytest boto3 moto ];
-  propagatedBuildInputs = [ kombu billiard pytz anyjson amqp eventlet ];
+  disabledTests = [
+    "msgpack"
+    "test_check_privileges_no_fchown"
+  ];
+
+  pythonImportsCheck = [
+    "celery"
+  ];
+
+  passthru.tests = {
+    inherit (nixosTests) sourcehut;
+  };
 
   meta = with lib; {
-    homepage = "https://github.com/celery/celery/";
     description = "Distributed task queue";
+    homepage = "https://github.com/celery/celery/";
     license = licenses.bsd3;
+    maintainers = with maintainers; [ fab ];
   };
 }

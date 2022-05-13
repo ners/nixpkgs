@@ -1,44 +1,53 @@
-{ lib, buildGoPackage, fetchFromGitLab, fetchurl }:
+{ lib, buildGoModule, fetchFromGitLab, fetchurl }:
 
 let
-  version = "12.10.2";
-  # Gitlab runner embeds some docker images these are prebuilt for arm and x86_64
-  docker_x86_64 = fetchurl {
-    url = "https://gitlab-runner-downloads.s3.amazonaws.com/v${version}/helper-images/prebuilt-x86_64.tar.xz";
-    sha256 = "1lw0f3svzsvcw1rkc8z60nrl2jqjj8ciqlw5icazf6ikqbqmf660";
-  };
-
-  docker_arm = fetchurl {
-    url = "https://gitlab-runner-downloads.s3.amazonaws.com/v${version}/helper-images/prebuilt-arm.tar.xz";
-    sha256 = "1hawdihnwk9p06fa3ym5q6b4sv6pp9095nimdy5myi6y88yj1rv2";
-  };
+  version = "14.10.1";
 in
-buildGoPackage rec {
+buildGoModule rec {
   inherit version;
   pname = "gitlab-runner";
-  goPackagePath = "gitlab.com/gitlab-org/gitlab-runner";
-  commonPackagePath = "${goPackagePath}/common";
-  buildFlagsArray = ''
-    -ldflags=
-      -X ${commonPackagePath}.NAME=gitlab-runner
-      -X ${commonPackagePath}.VERSION=${version}
-      -X ${commonPackagePath}.REVISION=v${version}
-  '';
+
+  commonPackagePath = "gitlab.com/gitlab-org/gitlab-runner/common";
+  ldflags = [
+    "-X ${commonPackagePath}.NAME=gitlab-runner"
+    "-X ${commonPackagePath}.VERSION=${version}"
+    "-X ${commonPackagePath}.REVISION=v${version}"
+  ];
+
+  vendorSha256 = "0ag3pmcrxksgikdcvl9rv2s3kn7l0dj41pf2m9dq0g2a1j45nydn";
 
   src = fetchFromGitLab {
     owner = "gitlab-org";
     repo = "gitlab-runner";
     rev = "v${version}";
-    sha256 = "1r82xj4krdd51540bhr2wjhp6sdr5c2favnnw8nl26vnmwiqpd3k";
+    sha256 = "1ph8byrh8kbg6s3gm5fakqk0ss6995pidgm664z3rwibr0h6m7sm";
   };
 
-  patches = [ ./fix-shell-path.patch ];
+  patches = [
+    ./fix-shell-path.patch
+    ./remove-bash-test.patch
+  ];
 
-  postInstall = ''
-    touch $out/bin/hello
-    install -d $out/bin/helper-images
-    ln -sf ${docker_x86_64} $out/bin/helper-images/prebuilt-x86_64.tar.xz
-    ln -sf ${docker_arm} $out/bin/helper-images/prebuilt-arm.tar.xz
+  prePatch = ''
+    # Remove some tests that can't work during a nix build
+
+    # Requires to run in a git repo
+    sed -i "s/func TestCacheArchiverAddingUntrackedFiles/func OFF_TestCacheArchiverAddingUntrackedFiles/" commands/helpers/file_archiver_test.go
+    sed -i "s/func TestCacheArchiverAddingUntrackedUnicodeFiles/func OFF_TestCacheArchiverAddingUntrackedUnicodeFiles/" commands/helpers/file_archiver_test.go
+
+    # No writable developer environment
+    rm common/build_test.go
+    rm executors/custom/custom_test.go
+
+    # No docker during build
+    rm executors/docker/terminal_test.go
+    rm executors/docker/docker_test.go
+    rm helpers/docker/auth/auth_test.go
+  '';
+
+  preCheck = ''
+    # Make the tests pass outside of GitLab CI
+    export CI=0
   '';
 
   meta = with lib; {
@@ -46,6 +55,6 @@ buildGoPackage rec {
     license = licenses.mit;
     homepage = "https://about.gitlab.com/gitlab-ci/";
     platforms = platforms.unix ++ platforms.darwin;
-    maintainers = with maintainers; [ bachp zimbatm globin ];
+    maintainers = with maintainers; [ bachp zimbatm globin yayayayaka ];
   };
 }

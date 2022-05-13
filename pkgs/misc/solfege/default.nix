@@ -1,23 +1,31 @@
-{ stdenv, fetchurl, pkgconfig, pythonPackages, gettext, texinfo
-, ghostscript, librsvg, gdk-pixbuf, txt2man, timidity, mpg123
-, alsaUtils, vorbis-tools, csound, lilypond
-, wrapGAppsHook
+{ lib, fetchurl, gettext, pkg-config, texinfo, wrapGAppsHook
+, buildPythonApplication, pycairo, pygobject3
+, gobject-introspection, gtk3, librsvg
+, alsa-utils, timidity, mpg123, vorbis-tools, csound, lilypond
 }:
 
-pythonPackages.buildPythonApplication rec {
-  name = "solfege-3.22.2";
+buildPythonApplication rec {
+  pname = "solfege";
+  version = "3.23.4";
 
   src = fetchurl {
-    url = "mirror://sourceforge/solfege/${name}.tar.gz";
-    sha256 = "1r4g93ka7i8jh5glii5nza0zq0wy4sw0gfzpvkcrhj9yr1h0jsp4";
+    url = "mirror://sourceforge/solfege/solfege-${version}.tar.gz";
+    sha256 = "0sc17vf4xz6gy0s0z9ghi68yskikdmyb4gdaxx6imrm40734k8mp";
   };
 
-  nativeBuildInputs = [ gettext texinfo pkgconfig wrapGAppsHook ];
-  buildInputs = [ librsvg ];
-  propagatedBuildInputs = [ pythonPackages.pygtk ];
+  patches = [
+    ./css.patch
+    ./menubar.patch
+    ./texinfo.patch
+    ./webbrowser.patch
+  ];
+
+  nativeBuildInputs = [ gettext pkg-config texinfo wrapGAppsHook ];
+  buildInputs = [ gobject-introspection gtk3 librsvg ];
+  propagatedBuildInputs = [ pycairo pygobject3 ];
 
   preBuild = ''
-    sed -i -e 's|wav_player=.*|wav_player=${alsaUtils}/bin/aplay|' \
+    sed -i -e 's|wav_player=.*|wav_player=${alsa-utils}/bin/aplay|' \
            -e 's|midi_player=.*|midi_player=${timidity}/bin/timidity|' \
            -e 's|mp3_player=.*|mp3_player=${mpg123}/bin/mpg123|' \
            -e 's|ogg_player=.*|ogg_player=${vorbis-tools}/bin/ogg123|' \
@@ -30,11 +38,11 @@ pythonPackages.buildPythonApplication rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Ear training program";
-    homepage = "http://www.solfege.org/";
+    homepage = "https://www.solfege.org/";
     license = licenses.gpl3;
     platforms = platforms.linux;
-    maintainers = [ maintainers.bjornfor ];
+    maintainers = with maintainers; [ bjornfor orivej ];
   };
 }

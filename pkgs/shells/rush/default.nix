@@ -1,12 +1,12 @@
-{ fetchurl, stdenv }:
+{ fetchurl, lib, stdenv }:
 
 stdenv.mkDerivation rec {
   pname = "rush";
-  version = "2.1";
+  version = "2.2";
 
   src = fetchurl {
     url = "mirror://gnu/${pname}/${pname}-${version}.tar.gz";
-    sha256 = "17i4mggr3rnfz0xbhqvd86jqva40c535fhlwkb2l4hjcbpg8blcf";
+    sha256 = "sha256-ld5TdpF7siprQCbhE4oxYhH40x3QZ5NCQlD3zRaNmM0=";
   };
 
   doCheck = true;
@@ -29,10 +29,10 @@ stdenv.mkDerivation rec {
       '';
 
     homepage = "https://www.gnu.org/software/rush/";
-    license = stdenv.lib.licenses.gpl3Plus;
+    license = lib.licenses.gpl3Plus;
 
-    maintainers = [ stdenv.lib.maintainers.bjg ];
-    platforms = stdenv.lib.platforms.all;
+    maintainers = [ lib.maintainers.bjg ];
+    platforms = lib.platforms.all;
   };
 
   passthru = {

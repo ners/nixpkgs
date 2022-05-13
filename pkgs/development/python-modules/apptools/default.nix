@@ -1,39 +1,73 @@
-{ lib, fetchPypi, buildPythonPackage, fetchpatch
-, configobj, six, traitsui
-, nose, tables, pandas
+{ lib
+, buildPythonPackage
+, configobj
+, fetchpatch
+, fetchPypi
+, importlib-resources
+, pandas
+, pytestCheckHook
+, pythonAtLeast
+, pythonOlder
+, tables
+, traits
+, traitsui
 }:
 
 buildPythonPackage rec {
   pname = "apptools";
-  version = "4.5.0";
+  version = "5.1.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "10h52ibhr2aw076pivqxiajr9rpcr1mancg6xlpxzckcm3if02i6";
+    sha256 = "12x5lcs1cllpybz7f0i1lcwvmqsaa5n818wb2165lj049wqxx4yh";
   };
 
-  # PyTables issue; should be merged in next post-4.5.0 release (#117)
-  patches = [ (fetchpatch {
-      url = "https://github.com/enthought/apptools/commit/3734289d1a0ebd8513fa67f75288add31ed0113c.patch";
-      sha256 = "001012q1ib5cbib3nq1alh9ckzj588bfrywr8brkd1f6y1pgvngk";
+  patches = [
+    # python39: importlib_resources -> importlib.resources. This patch will be included
+    # in the next release after 5.1.0.
+    (fetchpatch {
+      url = "https://github.com/enthought/apptools/commit/0ae4f52f19a8c0ca9d7926e17c7de949097f24b4.patch";
+      sha256 = "165aiwjisr5c3lasg7xblcha7y1y5bq23vi3g9gc80c24bzwcbsw";
     })
   ];
 
-  propagatedBuildInputs = [ configobj six traitsui ];
-
-  checkInputs = [
-    nose
-    tables
-    pandas
+  propagatedBuildInputs = [
+    configobj
+    traits
+    traitsui
+  ] ++ lib.optionals (pythonOlder "3.9") [
+    importlib-resources
   ];
 
-  doCheck = true;
-  checkPhase = ''HOME=$TMP nosetests'';
+  checkInputs = [
+    tables
+    pandas
+    pytestCheckHook
+  ];
+
+  preCheck = ''
+    export HOME=$TMP
+  '';
+
+  disabledTestPaths = lib.optionals (pythonAtLeast "3.10") [
+    # https://github.com/enthought/apptools/issues/303
+    "apptools/io/h5/tests/test_dict_node.py"
+    "apptools/io/h5/tests/test_file.py"
+    "apptools/io/h5/tests/test_table_node.py"
+  ];
+
+
+  pythonImportsCheck = [
+    "apptools"
+  ];
 
   meta = with lib; {
-    description = "Set of packages that Enthought has found useful in creating a number of applications.";
+    description = "Set of packages that Enthought has found useful in creating a number of applications";
     homepage = "https://github.com/enthought/apptools";
-    maintainers = with maintainers; [ knedlsepp ];
     license = licenses.bsdOriginal;
+    maintainers = with maintainers; [ knedlsepp ];
   };
 }

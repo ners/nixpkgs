@@ -1,8 +1,8 @@
-{ antlr3_4
-, bctoolbox
+{ bctoolbox
+, belr
 , cmake
 , fetchFromGitLab
-, jre
+, lib
 , libantlr3c
 , mbedtls
 , stdenv
@@ -11,20 +11,18 @@
 
 stdenv.mkDerivation rec {
   pname = "belle-sip";
-  # Using master branch for linphone-desktop caused a chain reaction that many
-  # of its dependencies needed to use master branch too.
-  version = "unstable-2020-02-18";
+  version = "linphone-4.4.1";
 
   src = fetchFromGitLab {
     domain = "gitlab.linphone.org";
     owner = "public";
     group = "BC";
     repo = pname;
-    rev = "0dcb13416eae87edf140771b886aedaf6be8cf60";
-    sha256 = "0pzxk8mkkg6zsnmj1bwggbdjv864psx89gglfm51h8s501kg11fv";
+    rev = "44d5977570280763ee1fecdb920736715bad58a3";
+    sha256 = "sha256-w++v3YlDZfpCHAbUQA/RftjRNGkz9J/zYoxZqRgtvnA=";
   };
 
-  nativeBuildInputs = [ jre cmake ];
+  nativeBuildInputs = [ cmake ];
 
   buildInputs = [ zlib ];
 
@@ -32,20 +30,18 @@ stdenv.mkDerivation rec {
   cmakeFlags = [ "-DENABLE_STATIC=NO" ];
 
   NIX_CFLAGS_COMPILE = toString [
+    "-Wno-error=cast-function-type"
     "-Wno-error=deprecated-declarations"
     "-Wno-error=format-truncation"
-    "-Wno-error=cast-function-type"
+    "-Wno-error=stringop-overflow"
   ];
 
-  propagatedBuildInputs = [ antlr3_4 libantlr3c mbedtls bctoolbox ];
+  propagatedBuildInputs = [ libantlr3c mbedtls bctoolbox belr ];
 
-  # Fails to build with lots of parallel jobs
-  enableParallelBuilding = false;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://linphone.org/technical-corner/belle-sip";
-    description = "Modern library implementing SIP (RFC 3261) transport, transaction and dialog layers";
-    license = licenses.gpl3;
+    description = "Modern library implementing SIP (RFC 3261) transport, transaction and dialog layers. Part of the Linphone project.";
+    license = licenses.gpl3Plus;
     platforms = platforms.all;
     maintainers = with maintainers; [ jluttine ];
   };

@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, libpng, bison, flex, ffmpeg, icu }:
+{ lib, stdenv, fetchFromGitHub, libpng, bison, flex, ffmpeg, icu }:
 
 stdenv.mkDerivation rec {
   pname = "cfdg";
@@ -25,7 +25,7 @@ stdenv.mkDerivation rec {
     cp *.txt $out/share/doc/${pname}-${version}
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Context-free design grammar - a tool for graphics generation";
     maintainers = with maintainers; [ raskin ];
     platforms = platforms.linux;

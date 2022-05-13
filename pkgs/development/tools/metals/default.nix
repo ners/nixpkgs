@@ -1,13 +1,14 @@
-{ stdenv, lib, coursier, jdk, jre, makeWrapper }:
+{ stdenv, lib, coursier, jre, makeWrapper, setJavaClassPath }:
 
-let
-  baseName = "metals";
-  version = "0.9.0";
+stdenv.mkDerivation rec {
+  pname = "metals";
+  version = "0.11.4";
+
   deps = stdenv.mkDerivation {
-    name = "${baseName}-deps-${version}";
+    name = "${pname}-deps-${version}";
     buildCommand = ''
       export COURSIER_CACHE=$(pwd)
-      ${coursier}/bin/coursier fetch org.scalameta:metals_2.12:${version} \
+      ${coursier}/bin/cs fetch org.scalameta:metals_2.13:${version} \
         -r bintray:scalacenter/releases \
         -r sonatype:snapshots > deps
       mkdir -p $out/share/java
@@ -15,43 +16,42 @@ let
     '';
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash     = "116q2jzqlmdhkqvjg31b9ib8w1k7rlr8gmjcr7z32idpn16hqg59";
+    outputHash     = "sha256-ZHl+uqYTSMEMR1CSo0btxEn/NQz7MNwh4JISm2L5B3Y=";
   };
-in
-stdenv.mkDerivation rec {
-  name = "${baseName}-${version}";
 
-  nativeBuildInputs = [ makeWrapper ];
-  buildInputs = [ jdk deps ];
+  nativeBuildInputs = [ makeWrapper setJavaClassPath ];
+  buildInputs = [ deps ];
 
-  phases = [ "installPhase" ];
+  dontUnpack = true;
 
   extraJavaOpts = "-XX:+UseG1GC -XX:+UseStringDeduplication -Xss4m -Xms100m";
 
   installPhase = ''
     mkdir -p $out/bin
 
+    # This variant is not targeted at any particular client, clients are
+    # expected to declare their supported features in initialization options.
+    makeWrapper ${jre}/bin/java $out/bin/metals \
+      --add-flags "${extraJavaOpts} -cp $CLASSPATH scala.meta.metals.Main"
+
+    # Further variants targeted at clients with featuresets pre-set.
     makeWrapper ${jre}/bin/java $out/bin/metals-emacs \
-      --prefix PATH : ${lib.makeBinPath [ jdk ]} \
       --add-flags "${extraJavaOpts} -Dmetals.client=emacs -cp $CLASSPATH scala.meta.metals.Main"
 
     makeWrapper ${jre}/bin/java $out/bin/metals-vim \
-      --prefix PATH : ${lib.makeBinPath [ jdk ]} \
       --add-flags "${extraJavaOpts} -Dmetals.client=coc.nvim -cp $CLASSPATH scala.meta.metals.Main"
 
     makeWrapper ${jre}/bin/java $out/bin/metals-vim-lsc \
-      --prefix PATH : ${lib.makeBinPath [ jdk ]} \
       --add-flags "${extraJavaOpts} -Dmetals.client=vim-lsc -cp $CLASSPATH scala.meta.metals.Main"
 
     makeWrapper ${jre}/bin/java $out/bin/metals-sublime \
-      --prefix PATH : ${lib.makeBinPath [ jdk ]} \
       --add-flags "${extraJavaOpts} -Dmetals.client=sublime -cp $CLASSPATH scala.meta.metals.Main"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://scalameta.org/metals/";
     license = licenses.asl20;
     description = "Work-in-progress language server for Scala";
-    maintainers = with maintainers; [ ceedubs tomahna ];
+    maintainers = with maintainers; [ fabianhjr tomahna ];
   };
 }

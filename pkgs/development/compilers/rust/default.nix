@@ -5,40 +5,30 @@
 , bootstrapHashes
 , selectRustPackage
 , rustcPatches ? []
+, llvmBootstrapForDarwin
+, llvmShared
+, llvmSharedForBuild
+, llvmSharedForHost
+, llvmSharedForTarget
+, llvmPackagesForBuild # Exposed through rustc for LTO in Firefox
 }:
 { stdenv, lib
 , buildPackages
 , newScope, callPackage
-, CoreFoundation, Security
-, llvmPackages_5
+, CoreFoundation, Security, SystemConfiguration
 , pkgsBuildTarget, pkgsBuildBuild
-}: rec {
-  toRustTarget = platform: with platform.parsed; let
-    cpu_ = {
-      "armv7a" = "armv7";
-      "armv7l" = "armv7";
-      "armv6l" = "arm";
-    }.${cpu.name} or platform.rustc.arch or cpu.name;
-  in platform.rustc.config
-    or "${cpu_}-${vendor.name}-${kernel.name}${lib.optionalString (abi.name != "unknown") "-${abi.name}"}";
+, makeRustPlatform
+}:
 
-  makeRustPlatform = { rustc, cargo, ... }: rec {
-    rust = {
-      inherit rustc cargo;
-    };
+let
+  # Use `import` to make sure no packages sneak in here.
+  lib' = import ../../../build-support/rust/lib { inherit lib; };
+in
+{
+  lib = lib';
 
-    fetchCargoTarball = buildPackages.callPackage ../../../build-support/rust/fetchCargoTarball.nix {
-      inherit cargo;
-    };
-
-    buildRustPackage = callPackage ../../../build-support/rust {
-      inherit rustc cargo fetchCargoTarball;
-    };
-
-    rustcSrc = callPackage ./rust-src.nix {
-      inherit rustc;
-    };
-  };
+  # Backwards compat before `lib` was factored out.
+  inherit (lib') toTargetArch toTargetOs toRustTarget toRustTargetSpec;
 
   # This just contains tools for now. But it would conceivably contain
   # libraries too, say if we picked some default/recommended versions from
@@ -74,16 +64,17 @@
         version = rustcVersion;
         sha256 = rustcSha256;
         inherit enableRustcDev;
+        inherit llvmShared llvmSharedForBuild llvmSharedForHost llvmSharedForTarget llvmPackagesForBuild;
 
         patches = rustcPatches;
 
         # Use boot package set to break cycle
         rustPlatform = bootRustPlatform;
       } // lib.optionalAttrs (stdenv.cc.isClang && stdenv.hostPlatform == stdenv.buildPlatform) {
-        stdenv = llvmPackages_5.stdenv;
-        pkgsBuildBuild = pkgsBuildBuild // { targetPackages.stdenv = llvmPackages_5.stdenv; };
-        pkgsBuildHost = pkgsBuildBuild // { targetPackages.stdenv = llvmPackages_5.stdenv; };
-        pkgsBuildTarget = pkgsBuildTarget // { targetPackages.stdenv = llvmPackages_5.stdenv; };
+        stdenv = llvmBootstrapForDarwin.stdenv;
+        pkgsBuildBuild = pkgsBuildBuild // { targetPackages.stdenv = llvmBootstrapForDarwin.stdenv; };
+        pkgsBuildHost = pkgsBuildBuild // { targetPackages.stdenv = llvmBootstrapForDarwin.stdenv; };
+        pkgsBuildTarget = pkgsBuildTarget // { targetPackages.stdenv = llvmBootstrapForDarwin.stdenv; };
       });
       rustfmt = self.callPackage ./rustfmt.nix { inherit Security; };
       cargo = self.callPackage ./cargo.nix {
@@ -92,7 +83,7 @@
         inherit CoreFoundation Security;
       };
       clippy = self.callPackage ./clippy.nix { inherit Security; };
-      rls = self.callPackage ./rls { inherit CoreFoundation Security; };
+      rls = self.callPackage ./rls { inherit CoreFoundation Security SystemConfiguration; };
     });
   };
 }

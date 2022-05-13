@@ -2,16 +2,18 @@
 
 buildGoModule rec {
   pname = "hydroxide";
-  version = "0.2.14";
+  version = "0.2.21";
 
   src = fetchFromGitHub {
     owner = "emersion";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0d8wjyzmw89yhrszz487f7i19rcz7xlx4w2wd4c69k5nsdrs6dys";
+    sha256 = "sha256-fF+pQnqAWBktc4NdQFTHeB/sEg5bPTxXtdL1x5JuXU8=";
   };
 
-  vendorSha256 = "0d8yfmsl8rycbq8gjnvc657j14644lq0zmr9l88ik360szw6v6gc";
+  vendorSha256 = "sha256-M5QlhF2Cj1jn5NNiKj1Roh9+sNCWxQEb4vbtsDfapWY=";
+
+  doCheck = false;
 
   subPackages = [ "cmd/hydroxide" ];
 
@@ -19,7 +21,7 @@ buildGoModule rec {
     description = "A third-party, open-source ProtonMail bridge";
     homepage = "https://github.com/emersion/hydroxide";
     license = licenses.mit;
-    maintainers = with maintainers; [ filalex77 ];
+    maintainers = with maintainers; [ Br1ght0ne ];
     platforms = platforms.unix;
   };
 }

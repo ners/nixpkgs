@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, termbox, pcre, uthash, lua5_3 }:
+{ lib, stdenv, fetchFromGitHub, termbox, pcre, uthash, lua5_3, makeWrapper, installShellFiles }:
 
 stdenv.mkDerivation rec {
   pname = "mle";
@@ -18,13 +18,23 @@ stdenv.mkDerivation rec {
     patchShebangs tests/*
   '';
 
+  nativeBuildInputs = [ makeWrapper installShellFiles ];
+
   buildInputs = [ termbox pcre uthash lua5_3 ];
 
   doCheck = true;
 
   installFlags = [ "prefix=${placeholder "out"}" ];
 
-  meta = with stdenv.lib; {
+  postInstall = ''
+    installManPage mle.1
+  '';
+
+  postFixup = lib.optionalString stdenv.isDarwin ''
+    wrapProgram $out/bin/mle --prefix DYLD_LIBRARY_PATH : ${termbox}/lib
+  '';
+
+  meta = with lib; {
     description = "Small, flexible terminal-based text editor";
     homepage = "https://github.com/adsr/mle";
     license = licenses.asl20;

@@ -1,20 +1,20 @@
-{ stdenv, fetchFromGitHub }:
+{ lib, stdenv, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
   pname = "jtc";
-  version = "1.75d";
+  version = "1.76";
 
   src = fetchFromGitHub {
     owner = "ldn-softdev";
     repo = pname;
     rev = version;
-    sha256 = "0vgb5hcgml0vmdal494231jq6dlr0qgssqhnrgsvqqjapy8xhnpw";
+    sha256 = "sha256-VATRlOOV4wBInLOm9J0Dp2vhtL5mb0Yxdl/ya0JiqEU=";
   };
 
   buildPhase = ''
     runHook preBuild
 
-    $CXX -o jtc -Wall -std=gnu++14 -Ofast jtc.cpp
+    $CXX -o jtc -Wall -std=gnu++14 -Ofast -pthread -lpthread jtc.cpp
 
     runHook postBuild
   '';
@@ -27,7 +27,7 @@ stdenv.mkDerivation rec {
     runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "JSON manipulation and transformation tool";
     homepage = "https://github.com/ldn-softdev/jtc";
     license = licenses.mit;

@@ -4,6 +4,11 @@ with lib;
 
 let
 
+  configurationPrefix = optionalString (versionAtLeast config.system.stateVersion "22.05") "nixos-";
+  configurationDirectoryName = "${configurationPrefix}containers";
+  configurationDirectory = "/etc/${configurationDirectoryName}";
+  stateDirectory = "/var/lib/${configurationPrefix}containers";
+
   # The container's init script, a small wrapper around the regular
   # NixOS stage-2 init script.
   containerInit = (cfg:
@@ -35,6 +40,9 @@ let
       ''
         #! ${pkgs.runtimeShell} -e
 
+        # Exit early if we're asked to shut down.
+        trap "exit 0" SIGRTMIN+3
+
         # Initialise the container side of the veth pair.
         if [ -n "$HOST_ADDRESS" ]   || [ -n "$HOST_ADDRESS6" ]  ||
            [ -n "$LOCAL_ADDRESS" ]  || [ -n "$LOCAL_ADDRESS6" ] ||
@@ -56,12 +64,16 @@ let
             ip -6 route add $HOST_ADDRESS6 dev eth0
             ip -6 route add default via $HOST_ADDRESS6
           fi
-
-          ${concatStringsSep "\n" (mapAttrsToList renderExtraVeth cfg.extraVeths)}
         fi
 
-        # Start the regular stage 1 script.
-        exec "$1"
+        ${concatStringsSep "\n" (mapAttrsToList renderExtraVeth cfg.extraVeths)}
+
+        # Start the regular stage 2 script.
+        # We source instead of exec to not lose an early stop signal, which is
+        # also the only _reliable_ shutdown signal we have since early stop
+        # does not execute ExecStop* commands.
+        set +e
+        . "$1"
       ''
     );
 
@@ -70,7 +82,7 @@ let
   startScript = cfg:
     ''
       mkdir -p -m 0755 "$root/etc" "$root/var/lib"
-      mkdir -p -m 0700 "$root/var/lib/private" "$root/root" /run/containers
+      mkdir -p -m 0700 "$root/var/lib/private" "$root/root" /run/nixos-containers
       if ! [ -e "$root/etc/os-release" ]; then
         touch "$root/etc/os-release"
       fi
@@ -127,12 +139,16 @@ let
       ''}
 
       # Run systemd-nspawn without startup notification (we'll
-      # wait for the container systemd to signal readiness).
+      # wait for the container systemd to signal readiness)
+      # Kill signal handling means systemd-nspawn will pass a system-halt signal
+      # to the container systemd when it receives SIGTERM for container shutdown;
+      # containerInit and stage2 have to handle this as well.
       exec ${config.systemd.package}/bin/systemd-nspawn \
         --keep-unit \
         -M "$INSTANCE" -D "$root" $extraFlags \
         $EXTRA_NSPAWN_FLAGS \
         --notify-ready=yes \
+        --kill-signal=SIGRTMIN+3 \
         --bind-ro=/nix/store \
         --bind-ro=/nix/var/nix/db \
         --bind-ro=/nix/var/nix/daemon-socket \
@@ -170,7 +186,7 @@ let
 
       ${concatStringsSep "\n" (
         mapAttrsToList (name: cfg:
-          ''ip link del dev ${name} 2> /dev/null || true ''
+          "ip link del dev ${name} 2> /dev/null || true "
         ) cfg.extraVeths
       )}
    '';
@@ -185,7 +201,7 @@ let
             fi
           ''
         else
-          ''${ipcmd} add ${cfg.${attribute}} dev $ifaceHost'';
+          "${ipcmd} add ${cfg.${attribute}} dev $ifaceHost";
       renderExtraVeth = name: cfg:
         if cfg.hostBridge != null then
           ''
@@ -223,8 +239,8 @@ let
             ${ipcall cfg "ip route" "$LOCAL_ADDRESS" "localAddress"}
             ${ipcall cfg "ip -6 route" "$LOCAL_ADDRESS6" "localAddress6"}
           fi
-          ${concatStringsSep "\n" (mapAttrsToList renderExtraVeth cfg.extraVeths)}
         fi
+        ${concatStringsSep "\n" (mapAttrsToList renderExtraVeth cfg.extraVeths)}
       ''
   );
 
@@ -238,11 +254,11 @@ let
 
     SyslogIdentifier = "container %i";
 
-    EnvironmentFile = "-/etc/containers/%i.conf";
+    EnvironmentFile = "-${configurationDirectory}/%i.conf";
 
     Type = "notify";
 
-    RuntimeDirectory = lib.optional cfg.ephemeral "containers/%i";
+    RuntimeDirectory = lib.optional cfg.ephemeral "${configurationDirectoryName}/%i";
 
     # Note that on reboot, systemd-nspawn returns 133, so this
     # unit will be restarted. On poweroff, it returns 0, so the
@@ -259,20 +275,17 @@ let
     Slice = "machine.slice";
     Delegate = true;
 
-    # Hack: we don't want to kill systemd-nspawn, since we call
-    # "machinectl poweroff" in preStop to shut down the
-    # container cleanly. But systemd requires sending a signal
-    # (at least if we want remaining processes to be killed
-    # after the timeout). So send an ignored signal.
+    # We rely on systemd-nspawn turning a SIGTERM to itself into a shutdown
+    # signal (SIGRTMIN+3) for the inner container.
     KillMode = "mixed";
-    KillSignal = "WINCH";
+    KillSignal = "TERM";
 
     DevicePolicy = "closed";
     DeviceAllow = map (d: "${d.node} ${d.modifier}") cfg.allowedDevices;
   };
 
-
   system = config.nixpkgs.localSystem.system;
+  kernelVersion = config.boot.kernelPackages.kernel.version;
 
   bindMountOpts = { name, ... }: {
 
@@ -320,7 +333,6 @@ let
       };
     };
   };
-
 
   mkBindFlag = d:
                let flagPrefix = if d.isReadOnly then " --bind-ro=" else " --bind=";
@@ -421,7 +433,7 @@ let
       extraVeths = {};
       additionalCapabilities = [];
       ephemeral = false;
-      timeoutStartSec = "15s";
+      timeoutStartSec = "1min";
       allowedDevices = [];
       hostAddress = null;
       hostAddress6 = null;
@@ -440,21 +452,16 @@ in
       default = false;
       description = ''
         Whether this NixOS machine is a lightweight container running
-        in another NixOS system. If set to true, support for nested
-        containers is disabled by default, but can be reenabled by
-        setting <option>boot.enableContainers</option> to true.
+        in another NixOS system.
       '';
     };
 
     boot.enableContainers = mkOption {
       type = types.bool;
-      default = !config.boot.isContainer;
+      default = true;
       description = ''
         Whether to enable support for NixOS containers. Defaults to true
-        (at no cost if containers are not actually used), but only if the
-        system is not itself a lightweight container of a host.
-        To enable support for nested containers, this option has to be
-        explicitly set to true (in the outer container).
+        (at no cost if containers are not actually used).
       '';
     };
 
@@ -463,21 +470,15 @@ in
         { config, options, name, ... }:
         {
           options = {
-
             config = mkOption {
               description = ''
                 A specification of the desired configuration of this
                 container, as a NixOS module.
               '';
-              type = let
-                confPkgs = if config.pkgs == null then pkgs else config.pkgs;
-              in lib.mkOptionType {
+              type = lib.mkOptionType {
                 name = "Toplevel NixOS config";
-                merge = loc: defs: (import (confPkgs.path + "/nixos/lib/eval-config.nix") {
+                merge = loc: defs: (import "${toString config.nixpkgs}/nixos/lib/eval-config.nix" {
                   inherit system;
-                  pkgs = confPkgs;
-                  baseModules = import (confPkgs.path + "/nixos/modules/module-list.nix");
-                  inherit (confPkgs) lib;
                   modules =
                     let
                       extraConfig = {
@@ -488,11 +489,16 @@ in
                           networking.useDHCP = false;
                           assertions = [
                             {
-                              assertion =  config.privateNetwork -> stringLength name < 12;
+                              assertion =
+                                (builtins.compareVersions kernelVersion "5.8" <= 0)
+                                -> config.privateNetwork
+                                -> stringLength name <= 11;
                               message = ''
                                 Container name `${name}` is too long: When `privateNetwork` is enabled, container names can
                                 not be longer than 11 characters, because the container's interface name is derived from it.
-                                This might be fixed in the future. See https://github.com/NixOS/nixpkgs/issues/38509
+                                You should either make the container name shorter or upgrade to a more recent kernel that
+                                supports interface altnames (i.e. at least Linux 5.8 - please see https://github.com/NixOS/nixpkgs/issues/38509
+                                for details).
                               '';
                             }
                           ];
@@ -506,7 +512,7 @@ in
 
             path = mkOption {
               type = types.path;
-              example = "/nix/var/nix/profiles/containers/webserver";
+              example = "/nix/var/nix/profiles/per-container/webserver";
               description = ''
                 As an alternative to specifying
                 <option>config</option>, you can specify the path to
@@ -526,12 +532,18 @@ in
               '';
             };
 
-            pkgs = mkOption {
-              type = types.nullOr types.attrs;
-              default = null;
-              example = literalExample "pkgs";
+            nixpkgs = mkOption {
+              type = types.path;
+              default = pkgs.path;
+              defaultText = literalExpression "pkgs.path";
               description = ''
-                Customise which nixpkgs to use for this container.
+                A path to the nixpkgs that provide the modules, pkgs and lib for evaluating the container.
+
+                To only change the <literal>pkgs</literal> argument used inside the container modules,
+                set the <literal>nixpkgs.*</literal> options in the container <option>config</option>.
+                Setting <literal>config.nixpkgs.pkgs = pkgs</literal> speeds up the container evaluation
+                by reusing the system pkgs, but the <literal>nixpkgs.config</literal> option in the
+                container config is ignored in this case.
               '';
             };
 
@@ -614,22 +626,22 @@ in
               '';
             };
 
-		    timeoutStartSec = mkOption {
-		      type = types.str;
-		      default = "1min";
-		      description = ''
-		        Time for the container to start. In case of a timeout,
-		        the container processes get killed.
-		        See <citerefentry><refentrytitle>systemd.time</refentrytitle>
-		        <manvolnum>7</manvolnum></citerefentry>
-		        for more information about the format.
-		       '';
-		    };
+            timeoutStartSec = mkOption {
+              type = types.str;
+              default = "1min";
+              description = ''
+                Time for the container to start. In case of a timeout,
+                the container processes get killed.
+                See <citerefentry><refentrytitle>systemd.time</refentrytitle>
+                <manvolnum>7</manvolnum></citerefentry>
+                for more information about the format.
+               '';
+            };
 
             bindMounts = mkOption {
-              type = with types; loaOf (submodule bindMountOpts);
+              type = with types; attrsOf (submodule bindMountOpts);
               default = {};
-              example = literalExample ''
+              example = literalExpression ''
                 { "/home" = { hostPath = "/home/alice";
                               isReadOnly = false; };
                 }
@@ -672,18 +684,35 @@ in
               '';
             };
 
+            # Removed option. See `checkAssertion` below for the accompanying error message.
+            pkgs = mkOption { visible = false; };
           } // networkOptions;
 
-          config = mkMerge
-            [
-              (mkIf options.config.isDefined {
-                path = config.config.system.build.toplevel;
-              })
-            ];
+          config = let
+            # Throw an error when removed option `pkgs` is used.
+            # Because this is a submodule we cannot use `mkRemovedOptionModule` or option `assertions`.
+            optionPath = "containers.${name}.pkgs";
+            files = showFiles options.pkgs.files;
+            checkAssertion = if options.pkgs.isDefined then throw ''
+              The option definition `${optionPath}' in ${files} no longer has any effect; please remove it.
+
+              Alternatively, you can use the following options:
+              - containers.${name}.nixpkgs
+                This sets the nixpkgs (and thereby the modules, pkgs and lib) that
+                are used for evaluating the container.
+
+              - containers.${name}.config.nixpkgs.pkgs
+                This only sets the `pkgs` argument used inside the container modules.
+            ''
+            else null;
+          in {
+            path = builtins.seq checkAssertion
+              mkIf options.config.isDefined config.config.system.build.toplevel;
+          };
         }));
 
       default = {};
-      example = literalExample
+      example = literalExpression
         ''
           { webserver =
               { path = "/nix/var/nix/profiles/webserver";
@@ -692,9 +721,9 @@ in
               { config =
                   { config, pkgs, ... }:
                   { services.postgresql.enable = true;
-                    services.postgresql.package = pkgs.postgresql_9_6;
+                    services.postgresql.package = pkgs.postgresql_10;
 
-                    system.stateVersion = "17.03";
+                    system.stateVersion = "21.05";
                   };
               };
           }
@@ -713,15 +742,21 @@ in
 
   config = mkIf (config.boot.enableContainers) (let
 
+    warnings = flatten [
+      (optional (config.virtualisation.containers.enable && versionOlder config.system.stateVersion "22.05") ''
+        Enabling both boot.enableContainers & virtualisation.containers on system.stateVersion < 22.05 is unsupported.
+      '')
+    ];
+
     unit = {
       description = "Container '%i'";
 
-      unitConfig.RequiresMountsFor = "/var/lib/containers/%i";
+      unitConfig.RequiresMountsFor = "${stateDirectory}/%i";
 
-      path = [ pkgs.iproute ];
+      path = [ pkgs.iproute2 ];
 
       environment = {
-        root = "/var/lib/containers/%i";
+        root = "${stateDirectory}/%i";
         INSTANCE = "%i";
       };
 
@@ -730,8 +765,6 @@ in
       script = startScript dummyConfig;
 
       postStart = postStartScript dummyConfig;
-
-      preStop = "machinectl poweroff $INSTANCE";
 
       restartIfChanged = false;
 
@@ -760,8 +793,8 @@ in
             script = startScript containerConfig;
             postStart = postStartScript containerConfig;
             serviceConfig = serviceDirectives containerConfig;
-            unitConfig.RequiresMountsFor = lib.optional (!containerConfig.ephemeral) "/var/lib/containers/%i";
-            environment.root = if containerConfig.ephemeral then "/run/containers/%i" else "/var/lib/containers/%i";
+            unitConfig.RequiresMountsFor = lib.optional (!containerConfig.ephemeral) "${stateDirectory}/%i";
+            environment.root = if containerConfig.ephemeral then "/run/nixos-containers/%i" else "${stateDirectory}/%i";
           } // (
           if containerConfig.autoStart then
             {
@@ -770,7 +803,7 @@ in
               after = [ "network.target" ];
               restartTriggers = [
                 containerConfig.path
-                config.environment.etc."containers/${name}.conf".source
+                config.environment.etc."${configurationDirectoryName}/${name}.conf".source
               ];
               restartIfChanged = true;
             }
@@ -778,12 +811,12 @@ in
       )) config.containers)
     ));
 
-    # Generate a configuration file in /etc/containers for each
+    # Generate a configuration file in /etc/nixos-containers for each
     # container so that container@.target can get the container
     # configuration.
     environment.etc =
       let mkPortStr = p: p.protocol + ":" + (toString p.hostPort) + ":" + (if p.containerPort == null then toString p.hostPort else toString p.containerPort);
-      in mapAttrs' (name: cfg: nameValuePair "containers/${name}.conf"
+      in mapAttrs' (name: cfg: nameValuePair "${configurationDirectoryName}/${name}.conf"
       { text =
           ''
             SYSTEM_PATH=${cfg.path}
@@ -832,7 +865,11 @@ in
       ENV{INTERFACE}=="v[eb]-*", ENV{NM_UNMANAGED}="1"
     '';
 
-    environment.systemPackages = [ pkgs.nixos-container ];
+    environment.systemPackages = [
+      (pkgs.nixos-container.override {
+        inherit stateDirectory configurationDirectory;
+      })
+    ];
 
     boot.kernelModules = [
       "bridge"

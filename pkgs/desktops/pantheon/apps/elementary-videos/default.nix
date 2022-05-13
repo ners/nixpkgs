@@ -1,7 +1,8 @@
-{ stdenv
+{ lib
+, stdenv
 , fetchFromGitHub
-, pantheon
-, pkgconfig
+, nix-update-script
+, pkg-config
 , meson
 , ninja
 , vala
@@ -10,67 +11,67 @@
 , gtk3
 , granite
 , libgee
+, libhandy
 , clutter-gst
 , clutter-gtk
 , gst_all_1
-, elementary-icon-theme
 , wrapGAppsHook
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-videos";
-  version = "2.7.1";
-
-  repoName = "videos";
+  version = "2.8.3";
 
   src = fetchFromGitHub {
     owner = "elementary";
-    repo = repoName;
+    repo = "videos";
     rev = version;
-    sha256 = "00arim4i9bv9mbms1irkp44grkgrfnmqzraswyn1xiz9nvl1bsb9";
-  };
-
-  passthru = {
-    updateScript = pantheon.updateScript {
-      attrPath = "pantheon.${pname}";
-    };
+    sha256 = "sha256-3V8iDy68ngdFTJxAGimuGi4vPru32pHYevThA0RwNpE=";
   };
 
   nativeBuildInputs = [
     desktop-file-utils
     meson
     ninja
-    pkgconfig
+    pkg-config
     python3
     vala
     wrapGAppsHook
   ];
 
-  buildInputs = with gst_all_1; [
+  buildInputs = [
     clutter-gst
     clutter-gtk
-    elementary-icon-theme
     granite
+    gtk3
+    libgee
+    libhandy
+  ] ++ (with gst_all_1; [
     gst-libav
     gst-plugins-bad
     gst-plugins-base
     gst-plugins-good
     gst-plugins-ugly
     gstreamer
-    gtk3
-    libgee
-  ];
+  ]);
 
   postPatch = ''
     chmod +x meson/post_install.py
     patchShebangs meson/post_install.py
   '';
 
-  meta = with stdenv.lib; {
+  passthru = {
+    updateScript = nix-update-script {
+      attrPath = "pantheon.${pname}";
+    };
+  };
+
+  meta = with lib; {
     description = "Video player and library app designed for elementary OS";
     homepage = "https://github.com/elementary/videos";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    maintainers = pantheon.maintainers;
+    maintainers = teams.pantheon.members;
+    mainProgram = "io.elementary.videos";
   };
 }

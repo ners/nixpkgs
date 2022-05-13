@@ -2,19 +2,21 @@
 , buildPythonPackage
 , fetchPypi
 , cryptography
+, deprecated
 }:
 
 buildPythonPackage rec {
   pname = "jwcrypto";
-  version = "0.7";
+  version = "1.2";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "002i60yidafpr642qcxrd74d8frbc4ci8vfysm05vqydcri1zgmd";
+    sha256 = "sha256-7fQwkyFyHlFhzvzN1ksEUJ4Dkk/q894IW0d4B2WYmuM=";
   };
 
   propagatedBuildInputs = [
     cryptography
+    deprecated
   ];
 
   meta = with lib; {

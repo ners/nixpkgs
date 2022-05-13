@@ -1,19 +1,23 @@
-{ lib, stdenv, fetchFromGitHub, cmake }:
+{ lib, stdenv, fetchFromGitHub, cmake, aws-c-common }:
 
 stdenv.mkDerivation rec {
   pname = "aws-checksums";
-  version = "0.1.5";
+  version = "0.1.12";
 
   src = fetchFromGitHub {
     owner = "awslabs";
     repo = pname;
     rev = "v${version}";
-    sha256 = "018fnpn0jc686jxp5wf8qxmjphk3z43l8n1mgcgaa9zw94i24jgk";
+    sha256 = "sha256-k3hIGk92HncRAktpuvNcZnaBZiLj63/wQBz2WScUjhQ=";
   };
 
   nativeBuildInputs = [ cmake ];
 
-  cmakeFlags = [ "-DBUILD_SHARED_LIBS:BOOL=ON" ];
+  buildInputs = [ aws-c-common ];
+
+  cmakeFlags = [
+    "-DBUILD_SHARED_LIBS=ON"
+  ];
 
   meta = with lib; {
     description = "HW accelerated CRC32c and CRC32";

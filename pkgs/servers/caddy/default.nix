@@ -1,36 +1,41 @@
-{ stdenv, buildGoModule, fetchFromGitHub }:
-
-buildGoModule rec {
+{ lib, buildGoModule, fetchFromGitHub, nixosTests }:
+let
+  version = "2.5.1";
+  dist = fetchFromGitHub {
+    owner = "caddyserver";
+    repo = "dist";
+    rev = "v${version}";
+    sha256 = "sha256-EXs+LNb87RWkmSWvs8nZIVqRJMutn+ntR241gqI7CUg=";
+  };
+in
+buildGoModule {
   pname = "caddy";
-  version = "1.0.5";
+  inherit version;
 
-  goPackagePath = "github.com/caddyserver/caddy";
-
-  subPackages = [ "caddy" ];
+  subPackages = [ "cmd/caddy" ];
 
   src = fetchFromGitHub {
     owner = "caddyserver";
-    repo = pname;
+    repo = "caddy";
     rev = "v${version}";
-    sha256 = "0jrhwmr6gggppskg5h450wybzkv17iq69dgw36hd1dp56q002i7g";
+    sha256 = "sha256-Y4GAx/8XcW7+6eXCQ6k4e/3WZ/6MkTr5za1AXp6El9o=";
   };
-  vendorSha256 = "09vnci9pp8zp7bvn8zj68wslz2nc54nhcd0ll31sqfjbp00215mj";
 
-  preBuild = ''
-    cat << EOF > caddy/main.go
-    package main
-    import "github.com/caddyserver/caddy/caddy/caddymain"
-    func main() {
-      caddymain.EnableTelemetry = false
-      caddymain.Run()
-    }
-    EOF
+  vendorSha256 = "sha256-xu3klc9yb4Ws8fvXRV286IDhi/zQVN1PKCiFKb8VJBo=";
+
+  postInstall = ''
+    install -Dm644 ${dist}/init/caddy.service ${dist}/init/caddy-api.service -t $out/lib/systemd/system
+
+    substituteInPlace $out/lib/systemd/system/caddy.service --replace "/usr/bin/caddy" "$out/bin/caddy"
+    substituteInPlace $out/lib/systemd/system/caddy-api.service --replace "/usr/bin/caddy" "$out/bin/caddy"
   '';
 
-  meta = with stdenv.lib; {
+  passthru.tests = { inherit (nixosTests) caddy; };
+
+  meta = with lib; {
     homepage = "https://caddyserver.com";
     description = "Fast, cross-platform HTTP/2 web server with automatic HTTPS";
     license = licenses.asl20;
-    maintainers = with maintainers; [ rushmorem fpletz zimbatm filalex77 ];
+    maintainers = with maintainers; [ Br1ght0ne techknowlogick ];
   };
 }

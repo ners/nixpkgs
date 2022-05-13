@@ -1,33 +1,41 @@
-{ stdenv, lib, fetchFromGitHub, cmake, pkgconfig, wrapQtAppsHook
+{ stdenv, lib, fetchFromGitHub, cmake, pkg-config, wrapQtAppsHook
 , qtbase, libuuid, libcap, uwsgi, grantlee, pcre
 }:
 
 stdenv.mkDerivation rec {
   pname = "cutelyst";
-  version = "2.10.0";
+  version = "2.14.2";
 
   src = fetchFromGitHub {
     owner = "cutelyst";
     repo = "cutelyst";
     rev = "v${version}";
-    sha256 = "1k8pbpwll19l3i3s34l9yhkxj4yqxbrf393nm29jqwlhvi9nz8qm";
+    sha256 = "sha256-JUffOeUTeaZvEssP5hfSGipeRuQ7FzLF4bOizCFhe5o=";
   };
 
-  nativeBuildInputs = [ cmake pkgconfig wrapQtAppsHook ];
-  buildInputs = [ qtbase libuuid libcap uwsgi grantlee pcre ];
+  nativeBuildInputs = [ cmake pkg-config wrapQtAppsHook ];
+  buildInputs = [
+    qtbase
+    grantlee
+  ] ++ lib.optionals stdenv.isLinux [
+    libuuid
+    libcap
+    uwsgi
+    pcre
+  ];
 
   cmakeFlags = [
-    "-DPLUGIN_UWSGI=ON"
+    "-DPLUGIN_UWSGI=${if stdenv.isLinux then "ON" else "OFF"}" # Missing uwsgi symbols on Darwin
     "-DPLUGIN_STATICCOMPRESSED=ON"
     "-DPLUGIN_CSRFPROTECTION=ON"
     "-DPLUGIN_VIEW_GRANTLEE=ON"
   ];
 
-  preBuild = ''
+  preBuild = lib.optionalString stdenv.isLinux ''
     export LD_LIBRARY_PATH="$LD_LIBRARY_PATH''${LD_LIBRARY_PATH:+:}`pwd`/Cutelyst:`pwd`/EventLoopEPoll"
   '';
 
-  postBuild = ''
+  postBuild = lib.optionalString stdenv.isLinux ''
     unset LD_LIBRARY_PATH
   '';
 
@@ -35,6 +43,7 @@ stdenv.mkDerivation rec {
     description = "C++ Web Framework built on top of Qt";
     homepage = "https://cutelyst.org/";
     license = licenses.lgpl21Plus;
+    platforms = platforms.unix;
     maintainers = with maintainers; [ fpletz ];
   };
 }

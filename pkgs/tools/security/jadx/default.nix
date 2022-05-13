@@ -1,14 +1,14 @@
-{ stdenv, fetchFromGitHub, gradle, jdk, makeWrapper, perl }:
+{ lib, stdenv, fetchFromGitHub, gradle, jdk, makeWrapper, perl }:
 
 let
   pname = "jadx";
-  version = "1.1.0";
+  version = "1.3.5";
 
   src = fetchFromGitHub {
     owner = "skylot";
     repo = pname;
     rev = "v${version}";
-    sha256 = "1dx3g0sm46qy57gggpg8bpmin5glzbxdbf0qzvha9r2dwh4mrwlg";
+    hash = "sha256-uDNHjajGqEeXOIC5SaluhHWOkA2j3LUvB6O3MHB2+YA=";
   };
 
   deps = stdenv.mkDerivation {
@@ -21,6 +21,14 @@ let
       export GRADLE_USER_HOME=$(mktemp -d)
       export JADX_VERSION=${version}
       gradle --no-daemon jar
+
+      # Apparently, Gradle won't cache the `compileOnlyApi` dependency
+      # `org.jetbrains:annotations:22.0.0` which is defined in
+      # `io.github.skylot:raung-common`. To make it available in the
+      # output, we patch `build.gradle` and run Gradle again.
+      substituteInPlace build.gradle \
+        --replace 'org.jetbrains:annotations:23.0.0' 'org.jetbrains:annotations:22.0.0'
+      gradle --no-daemon jar
     '';
 
     # Mavenize dependency paths
@@ -31,9 +39,8 @@ let
         | sh
     '';
 
-    outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "083r4hg6m9cxzm2m8nckf10awq8kh901v5i39r60x47xk5yw84ps";
+    outputHash = "sha256-SFj3VPCIxEA2mj/xsibXZ1MDmV/BnmvQJUBav1gfEGM=";
   };
 in stdenv.mkDerivation {
   inherit pname version src;
@@ -90,7 +97,7 @@ in stdenv.mkDerivation {
     done
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Dex to Java decompiler";
     longDescription = ''
       Command line and GUI tools for produce Java source code from Android Dex

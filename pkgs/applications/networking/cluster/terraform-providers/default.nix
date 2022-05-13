@@ -1,142 +1,112 @@
 { lib
-, buildGoPackage
+, buildGoModule
 , fetchFromGitHub
 , callPackage
+, config
+
+, cdrtools # libvirt
 }:
 let
-  list = import ./data.nix;
-
-  toDrv = data:
-    buildGoPackage rec {
-      inherit (data) owner repo rev version sha256;
-      name = "${repo}-${version}";
-      goPackagePath = "github.com/${owner}/${repo}";
-      subPackages = [ "." ];
-      src = fetchFromGitHub {
-        inherit owner repo rev sha256;
-      };
-      # Terraform allow checking the provider versions, but this breaks
-      # if the versions are not provided via file paths.
-      postBuild = "mv go/bin/${repo}{,_v${version}}";
-    };
-
-  # Google is now using the vendored go modules, which works a bit differently
-  # and is not 100% compatible with the pre-modules vendored folders.
+  # Our generic constructor to build new providers.
   #
-  # Instead of switching to goModules which requires a goModSha256, patch the
-  # goPackage derivation so it can install the top-level.
-  patchGoModVendor = drv:
-    drv.overrideAttrs (attrs: {
-      buildFlags = "-mod=vendor";
+  # Is designed to combine with the terraform.withPlugins implementation.
+  mkProvider = lib.makeOverridable
+    ({ owner
+     , repo
+     , rev
+     , version
+     , sha256
+     , vendorSha256 ? throw "vendorSha256 missing: please use `buildGoModule`" /* added 2022/01 */
+     , deleteVendor ? false
+     , proxyVendor ? false
+     , # Looks like "registry.terraform.io/vancluever/acme"
+       provider-source-address
+     }@attrs:
+      buildGoModule {
+        pname = repo;
+        inherit vendorSha256 version deleteVendor proxyVendor;
+        subPackages = [ "." ];
+        doCheck = false;
+        # https://github.com/hashicorp/terraform-provider-scaffolding/blob/a8ac8375a7082befe55b71c8cbb048493dd220c2/.goreleaser.yml
+        # goreleaser (used for builds distributed via terraform registry) requires that CGO is disabled
+        CGO_ENABLED = 0;
+        ldflags = [ "-s" "-w" "-X main.version=${version}" "-X main.commit=${rev}" ];
+        src = fetchFromGitHub {
+          name = "source-${rev}";
+          inherit owner repo rev sha256;
+        };
 
-      # override configurePhase to not move the source into GOPATH
-      configurePhase = ''
-        export GOPATH=$NIX_BUILD_TOP/go:$GOPATH
-        export GOCACHE=$TMPDIR/go-cache
-        export GO111MODULE=on
-      '';
+        # Move the provider to libexec
+        postInstall = ''
+          dir=$out/libexec/terraform-providers/${provider-source-address}/${version}/''${GOOS}_''${GOARCH}
+          mkdir -p "$dir"
+          mv $out/bin/* "$dir/terraform-provider-$(basename ${provider-source-address})_${version}"
+          rmdir $out/bin
+        '';
 
-      # just build and install into $GOPATH/bin
-      buildPhase = ''
-        go install -mod=vendor -v -p 16 .
-      '';
+        # Keep the attributes around for later consumption
+        passthru = attrs;
+      });
 
-      # don't run the tests, they are broken in this setup
-      doCheck = false;
-    });
+  list = lib.importJSON ./providers.json;
 
   # These providers are managed with the ./update-all script
-  automated-providers = lib.mapAttrs (_: toDrv) list;
+  automated-providers = lib.mapAttrs (_: attrs: mkProvider attrs) list;
 
   # These are the providers that don't fall in line with the default model
-  special-providers = {
-    # Override providers that use Go modules + vendor/ folder
-    google = patchGoModVendor automated-providers.google;
-    google-beta = patchGoModVendor automated-providers.google-beta;
-    ibm = patchGoModVendor automated-providers.ibm;
+  special-providers =
+    {
+      # Packages that don't fit the default model
 
-    # providers that were moved to the `hashicorp` organization,
-    # but haven't updated their references yet:
+      # mkisofs needed to create ISOs holding cloud-init data,
+      # and wrapped to terraform via deecb4c1aab780047d79978c636eeb879dd68630
+      libvirt = automated-providers.libvirt.overrideAttrs (_: { propagatedBuildInputs = [ cdrtools ]; });
+    };
 
-    # https://github.com/hashicorp/terraform-provider-archive/pull/67
-    archive = automated-providers.archive.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-archive hashicorp/terraform-provider-archive
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-archive hashicorp/terraform-provider-archive
-      '';
-    });
+  # Put all the providers we not longer support in this list.
+  removed-providers =
+    let
+      archived = date: throw "the provider has been archived by upstream on ${date}";
+      removed = date: throw "removed from nixpkgs on ${date}";
+    in
+    lib.optionalAttrs config.allowAliases {
+      arukas = archived "2022/01";
+      chef = archived "2022/01";
+      cherryservers = archived "2022/01";
+      clc = archived "2022/01";
+      cloudstack = removed "2022/01";
+      cobbler = archived "2022/01";
+      cohesity = archived "2022/01";
+      dyn = archived "2022/01";
+      genymotion = archived "2022/01";
+      hedvig = archived "2022/01";
+      ignition = archived "2022/01";
+      incapsula = archived "2022/01";
+      influxdb = archived "2022/01";
+      jdcloud = archived "2022/01";
+      kubernetes-alpha = throw "This has been merged as beta into the kubernetes provider. See https://www.hashicorp.com/blog/beta-support-for-crds-in-the-terraform-provider-for-kubernetes for details";
+      librato = archived "2022/01";
+      logentries = archived "2022/01";
+      metalcloud = archived "2022/01";
+      mysql = archived "2022/01";
+      nixos = archived "2022/01";
+      oneandone = archived "2022/01";
+      packet = archived "2022/01";
+      profitbricks = archived "2022/01";
+      pureport = archived "2022/01";
+      rancher = archived "2022/01";
+      rightscale = archived "2022/01";
+      runscope = archived "2022/01";
+      segment = removed "2022/01";
+      softlayer = archived "2022/01";
+      telefonicaopencloud = archived "2022/01";
+      teleport = removed "2022/01";
+      terraform = archived "2022/01";
+      ultradns = archived "2022/01";
+      vthunder = throw "provider was renamed to thunder on 2022/01";
+    };
 
-    # https://github.com/hashicorp/terraform-provider-dns/pull/101
-    dns = automated-providers.dns.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-dns hashicorp/terraform-provider-dns
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-dns hashicorp/terraform-provider-dns
-      '';
-    });
-
-    # https://github.com/hashicorp/terraform-provider-external/pull/41
-    external = automated-providers.external.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-external hashicorp/terraform-provider-external
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-external hashicorp/terraform-provider-external
-      '';
-    });
-
-    # https://github.com/hashicorp/terraform-provider-http/pull/40
-    http = automated-providers.http.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-http hashicorp/terraform-provider-http
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-http hashicorp/terraform-provider-http
-      '';
-    });
-
-    # https://github.com/hashicorp/terraform-provider-local/pull/40
-    local = automated-providers.local.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-local hashicorp/terraform-provider-local
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-local hashicorp/terraform-provider-local
-      '';
-    });
-
-    # https://github.com/hashicorp/terraform-provider-null/pull/43
-    null = automated-providers.null.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-null hashicorp/terraform-provider-null
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-null hashicorp/terraform-provider-null
-      '';
-    });
-
-    # https://github.com/hashicorp/terraform-provider-random/pull/107
-    random = automated-providers.random.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-random hashicorp/terraform-provider-random
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-random hashicorp/terraform-provider-random
-      '';
-    });
-
-    # https://github.com/hashicorp/terraform-provider-template/pull/79
-    template = automated-providers.template.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-template hashicorp/terraform-provider-template
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-template hashicorp/terraform-provider-template
-      '';
-    });
-
-    # https://github.com/hashicorp/terraform-provider-tls/pull/71
-    tls = automated-providers.tls.overrideAttrs (attrs: {
-      prePatch = attrs.prePatch or "" + ''
-        substituteInPlace go.mod --replace terraform-providers/terraform-provider-tls hashicorp/terraform-provider-tls
-        substituteInPlace main.go --replace terraform-providers/terraform-provider-tls hashicorp/terraform-provider-tls
-      '';
-    });
-
-    # Packages that don't fit the default model
-    ansible = callPackage ./ansible {};
-    gandi = callPackage ./gandi {};
-    elasticsearch = callPackage ./elasticsearch {};
-    libvirt = callPackage ./libvirt {};
-    lxd = callPackage ./lxd {};
-    vpsadmin = callPackage ./vpsadmin {};
-  };
+  # excluding aliases, used by terraform-full
+  actualProviders = automated-providers // special-providers;
 in
-  automated-providers // special-providers
+actualProviders // removed-providers // { inherit actualProviders mkProvider; }

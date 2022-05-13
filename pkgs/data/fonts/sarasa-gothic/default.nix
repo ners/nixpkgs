@@ -1,23 +1,25 @@
 { lib, fetchurl, libarchive }:
 
 let
-  version = "0.12.6";
+  version = "0.36.2";
 in fetchurl {
   name = "sarasa-gothic-${version}";
 
+  # Use the 'ttc' files here for a smaller closure size.
+  # (Using 'ttf' files gives a closure size about 15x larger, as of November 2021.)
   url = "https://github.com/be5invis/Sarasa-Gothic/releases/download/v${version}/sarasa-gothic-ttc-${version}.7z";
-  sha256 = "1b15gsmv2jr0r8xssr8216s8xsghr6w5wm3w3imm3qlh3kqk1qg8";
+  sha256 = "sha256-hUQi8mbtQC+peslaz+AVINjELVXseuVi44qbDBtJ+fc=";
 
   recursiveHash = true;
   downloadToTemp = true;
 
   postFetch = ''
-    mkdir -p $out/share/fonts
-    ${libarchive}/bin/bsdtar -xf $downloadedFile -C $out/share/fonts
+    mkdir -p $out/share/fonts/truetype
+    ${libarchive}/bin/bsdtar -xf $downloadedFile -C $out/share/fonts/truetype
   '';
 
   meta = with lib; {
-    description = "SARASA GOTHIC is a Chinese & Japanese programming font based on Iosevka and Source Han Sans";
+    description = "A CJK programming font based on Iosevka and Source Han Sans";
     homepage = "https://github.com/be5invis/Sarasa-Gothic";
     license = licenses.ofl;
     maintainers = [ maintainers.ChengCat ];

@@ -17,6 +17,10 @@ let
     lib.generators.toGitINI cfg.settings
   );
 
+  replicationConfig = pkgs.writeText "replication.conf" (
+    lib.generators.toGitINI cfg.replicationSettings
+  );
+
   # Wrap the gerrit java with all the java options so it can be called
   # like a normal CLI app
   gerrit-cli = pkgs.writeShellScriptBin "gerrit" ''
@@ -60,13 +64,14 @@ in
       package = mkOption {
         type = types.package;
         default = pkgs.gerrit;
+        defaultText = literalExpression "pkgs.gerrit";
         description = "Gerrit package to use";
       };
 
       jvmPackage = mkOption {
         type = types.package;
         default = pkgs.jre_headless;
-        defaultText = "pkgs.jre_headless";
+        defaultText = literalExpression "pkgs.jre_headless";
         description = "Java Runtime Environment package to use";
       };
 
@@ -106,6 +111,15 @@ in
         '';
       };
 
+      replicationSettings = mkOption {
+        type = gitIniType;
+        default = {};
+        description = ''
+          Replication configuration. This will be generated to the
+          <literal>etc/replication.config</literal> file.
+        '';
+      };
+
       plugins = mkOption {
         type = types.listOf types.package;
         default = [];
@@ -130,13 +144,20 @@ in
           Set a UUID that uniquely identifies the server.
 
           This can be generated with
-          <literal>nix-shell -p utillinux --run uuidgen</literal>.
+          <literal>nix-shell -p util-linux --run uuidgen</literal>.
         '';
       };
     };
   };
 
   config = mkIf cfg.enable {
+
+    assertions = [
+      {
+        assertion = cfg.replicationSettings != {} -> elem "replication" cfg.builtinPlugins;
+        message = "Gerrit replicationSettings require enabling the replication plugin";
+      }
+    ];
 
     services.gerrit.settings = {
       cache.directory = "/var/cache/gerrit";
@@ -194,6 +215,7 @@ in
 
         # copy the config, keep it mutable because Gerrit
         ln -sfv ${gerritConfig} etc/gerrit.config
+        ln -sfv ${replicationConfig} etc/replication.config
 
         # install the plugins
         rm -rf plugins
@@ -215,4 +237,6 @@ in
   };
 
   meta.maintainers = with lib.maintainers; [ edef zimbatm ];
+  # uses attributes of the linked package
+  meta.buildDocsInSandbox = false;
 }

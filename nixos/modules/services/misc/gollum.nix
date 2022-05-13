@@ -50,6 +50,12 @@ in
       description = "Parse and interpret emoji tags";
     };
 
+    h1-title = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Use the first h1 as page title";
+    };
+
     branch = mkOption {
       type = types.str;
       default = "master";
@@ -94,18 +100,22 @@ in
       serviceConfig = {
         User = config.users.users.gollum.name;
         Group = config.users.groups.gollum.name;
+        WorkingDirectory = cfg.stateDir;
         ExecStart = ''
           ${pkgs.gollum}/bin/gollum \
             --port ${toString cfg.port} \
             --host ${cfg.address} \
-            --config ${builtins.toFile "gollum-config.rb" cfg.extraConfig} \
+            --config ${pkgs.writeText "gollum-config.rb" cfg.extraConfig} \
             --ref ${cfg.branch} \
             ${optionalString cfg.mathjax "--mathjax"} \
             ${optionalString cfg.emoji "--emoji"} \
+            ${optionalString cfg.h1-title "--h1-title"} \
             ${optionalString (cfg.allowUploads != null) "--allow-uploads ${cfg.allowUploads}"} \
             ${cfg.stateDir}
         '';
       };
     };
   };
+
+  meta.maintainers = with lib.maintainers; [ erictapen ];
 }

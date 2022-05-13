@@ -1,4 +1,4 @@
-{ lib, stdenv, callPackage, runCommand, makeWrapper, ruby }@defs:
+{ lib, callPackage, runCommand, makeWrapper, ruby }@defs:
 
 # Use for simple installation of Ruby tools shipped in a Gem.
 # Start with a Gemfile that includes `gem <toolgem>`
@@ -57,7 +57,7 @@ in
                                 "--set BUNDLE_FROZEN 1 "+
                                 "--set GEM_HOME ${basicEnv}/${ruby.gemPath} "+
                                 "--set GEM_PATH ${basicEnv}/${ruby.gemPath} "+
-                                "--run \"cd $srcdir\";\n") scripts)}
+                                "--chdir \"$srcdir\";\n") scripts)}
 
     ${lib.optionalString installManpages ''
     for section in {1..9}; do

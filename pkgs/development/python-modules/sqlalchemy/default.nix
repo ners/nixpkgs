@@ -1,17 +1,30 @@
-{ stdenv, lib, fetchPypi, buildPythonPackage, isPy3k, isPy35
+{ stdenv
+, lib
+, fetchPypi
+, buildPythonPackage
+, isPy3k
+, pythonOlder
+, greenlet
+, importlib-metadata
 , mock
-, pysqlite
+, pysqlite ? null
 , pytestCheckHook
 }:
 
 buildPythonPackage rec {
   pname = "SQLAlchemy";
-  version = "1.3.13";
+  version = "1.4.35";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "64a7b71846db6423807e96820993fa12a03b89127d278290ca25c0b11ed7b4fb";
+    hash = "sha256-L/yBOwHcZHOZD15XXyEMpawvVGWs45CLeP/W0gBYqrU=";
   };
+
+  propagatedBuildInputs = [
+    greenlet
+  ] ++ lib.optionals (pythonOlder "3.8") [
+    importlib-metadata
+  ];
 
   checkInputs = [
     pytestCheckHook
@@ -22,11 +35,11 @@ buildPythonPackage rec {
     sed -e 's:--max-worker-restart=5::g' -i setup.cfg
   '';
 
-  dontUseSetuptoolsCheck = true;
-
   # disable mem-usage tests on mac, has trouble serializing pickle files
-  disabledTests = lib.optionals isPy35 [ "exception_persistent_flush_py3k "]
-    ++ lib.optionals stdenv.isDarwin [ "MemUsageWBackendTest" "MemUsageTest" ];
+  disabledTests = lib.optionals stdenv.isDarwin [
+    "MemUsageWBackendTest"
+    "MemUsageTest"
+  ];
 
   meta = with lib; {
     homepage = "http://www.sqlalchemy.org/";

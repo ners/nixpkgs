@@ -1,30 +1,59 @@
-{ stdenv
+{ lib
+, stdenv
 , fetchFromGitHub
 , cmake
 , gflags
 , libsodium
+, openssl
 , protobuf
+, zlib
+, catch2
 }:
 
 stdenv.mkDerivation rec {
   pname = "eternal-terminal";
-  version = "6.0.7";
+  version = "6.1.11";
 
   src = fetchFromGitHub {
     owner = "MisterTea";
     repo = "EternalTerminal";
     rev = "et-v${version}";
-    sha256 = "03pdspggqxkmz95qb96pig5x0xw18hy9a7ivszydr32ry6kxxx1h";
+    hash = "sha256-cCZbG0CD5V/FTj1BuVr083EJ+BCgIcKHomNtpJb3lOo=";
   };
 
-  nativeBuildInputs = [ cmake ];
-  buildInputs = [ gflags libsodium protobuf ];
+  preBuild = ''
+    cp ${catch2}/include/catch2/catch.hpp ../external_imported/Catch2/single_include/catch2/catch.hpp
+  '';
 
-  meta = with stdenv.lib; {
+  nativeBuildInputs = [
+    cmake
+  ];
+
+  buildInputs = [
+    gflags
+    libsodium
+    openssl
+    protobuf
+    zlib
+  ];
+
+  cmakeFlags = [
+    "-DDISABLE_VCPKG=TRUE"
+    "-DDISABLE_SENTRY=TRUE"
+    "-DDISABLE_CRASH_LOG=TRUE"
+  ];
+
+  CXXFLAGS = lib.optional stdenv.cc.isClang [
+    "-std=c++17"
+  ];
+
+  doCheck = true;
+
+  meta = with lib; {
     description = "Remote shell that automatically reconnects without interrupting the session";
+    homepage = "https://eternalterminal.dev/";
     license = licenses.asl20;
-    homepage = "https://mistertea.github.io/EternalTerminal/";
+    maintainers = with maintainers; [ dezgeg ];
     platforms = platforms.linux ++ platforms.darwin;
-    maintainers = with maintainers; [ dezgeg pingiun ];
   };
 }

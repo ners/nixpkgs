@@ -1,53 +1,70 @@
 { lib
 , buildPythonPackage
+, callPackage
 , fetchFromGitHub
+, asgiref
 , click
+, colorama
 , h11
 , httptools
+, python-dotenv
+, pyyaml
+, typing-extensions
 , uvloop
+, watchgod
 , websockets
 , wsproto
-, pytest
-, requests
-, isPy27
+, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "uvicorn";
-  version = "0.11.2";
-  disabled = isPy27;
+  version = "0.17.5";
+  disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "encode";
     repo = pname;
     rev = version;
-    sha256 = "145c569j4511zw3wglyv9qgd7g1757ypi2blcckpcmahqw11l5p2";
+    sha256 = "sha256-66wPVnBLy2HK4p0m/b/DRxy12sk8AsVFZoFVcWRkL4s=";
   };
 
-  propagatedBuildInputs = [
-    click
-    h11
-    httptools
-    uvloop
-    websockets
-    wsproto
+  outputs = [
+    "out"
+    "testsout"
   ];
 
-  postPatch = ''
-    substituteInPlace setup.py \
-      --replace "h11==0.8.*" "h11"
-  '';
+  propagatedBuildInputs = [
+    asgiref
+    click
+    colorama
+    h11
+    httptools
+    python-dotenv
+    pyyaml
+    uvloop
+    watchgod
+    websockets
+    wsproto
+  ] ++ lib.optionals (pythonOlder "3.8") [
+    typing-extensions
+  ];
 
-  checkInputs = [ pytest requests ];
-  checkPhase = ''
-    pytest
-  '';
-
-  # LICENCE.md gets propagated without this, causing collisions
-  # see https://github.com/encode/uvicorn/issues/392
   postInstall = ''
-    rm $out/LICENSE.md
+    mkdir $testsout
+    cp -R tests $testsout/tests
   '';
+
+  pythonImportsCheck = [
+    "uvicorn"
+  ];
+
+  # check in passthru.tests.pytest to escape infinite recursion with httpx/httpcore
+  doCheck = false;
+
+  passthru.tests = {
+    pytest = callPackage ./tests.nix { };
+  };
 
   meta = with lib; {
     homepage = "https://www.uvicorn.org/";

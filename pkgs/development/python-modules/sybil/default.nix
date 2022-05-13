@@ -1,28 +1,40 @@
 { lib
 , buildPythonApplication
 , fetchPypi
-, pytest
-, nose
+, pytestCheckHook
+, pythonOlder
 }:
 
 buildPythonApplication rec {
   pname = "sybil";
-  version = "1.3.0";
+  version = "3.0.1";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0x34mzxvxj1kkld7sz9n90pdcinxcan56jg6cnnwkv87v7s1vna6";
+    hash = "sha256-bwLcIgSvflohIDeSTZdPcngfbcGP08RMx85GOhIPUw0=";
   };
 
-  checkInputs = [ pytest nose ];
+  checkInputs = [
+    pytestCheckHook
+  ];
 
-  checkPhase = ''
-    py.test tests
-  '';
+  disabledTests = [
+    # Sensitive to output of other commands
+    "test_namespace"
+    "test_unittest"
+  ];
+
+  pythonImportsCheck = [
+    "sybil"
+  ];
 
   meta = with lib; {
     description = "Automated testing for the examples in your documentation";
     homepage = "https://github.com/cjw296/sybil";
     license = licenses.mit;
+    maintainers = with maintainers; [ ];
   };
 }

@@ -1,19 +1,20 @@
-{ fetchurl, stdenv, libxml2, freetype, libGLU, libGL, glew, qt4
-, cmake, makeWrapper, libjpeg, python }:
+{ fetchurl, lib, stdenv, libxml2, freetype, libGLU, libGL, glew
+, qtbase, wrapQtAppsHook, python3
+, cmake, libjpeg }:
 
-let version = "5.2.1"; in
 stdenv.mkDerivation rec {
   pname = "tulip";
-  inherit version;
+  version = "5.6.1";
 
   src = fetchurl {
     url = "mirror://sourceforge/auber/${pname}-${version}_src.tar.gz";
-    sha256 = "0bqmqy6sri87a8xv5xf7ffaq5zin4hiaa13g0l64b84i7yckfwky";
+    sha256 = "1fy3nvgxv3igwc1d23zailcgigj1d0f2kkh7a5j24c0dyqz5zxmw";
   };
 
-  buildInputs = [ libxml2 freetype glew libGLU libGL qt4 libjpeg python ];
+  buildInputs = [ libxml2 freetype glew libGLU libGL libjpeg qtbase python3 ];
+  nativeBuildInputs = [ cmake wrapQtAppsHook ];
 
-  nativeBuildInputs = [ cmake makeWrapper ];
+  qtWrapperArgs = [ ''--prefix PATH : ${lib.makeBinPath [ python3 ]}'' ];
 
   # FIXME: "make check" needs Docbook's DTD 4.4, among other things.
   doCheck = false;
@@ -31,9 +32,9 @@ stdenv.mkDerivation rec {
 
     homepage = "http://tulip.labri.fr/";
 
-    license = stdenv.lib.licenses.gpl3Plus;
+    license = lib.licenses.gpl3Plus;
 
     maintainers = [ ];
-    platforms = stdenv.lib.platforms.gnu ++ stdenv.lib.platforms.linux;  # arbitrary choice
+    platforms = lib.platforms.gnu ++ lib.platforms.linux;  # arbitrary choice
   };
 }

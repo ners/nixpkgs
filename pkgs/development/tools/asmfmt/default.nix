@@ -1,12 +1,11 @@
 { buildGoPackage
 , lib
 , fetchFromGitHub
-, fetchpatch
 }:
 
 buildGoPackage rec {
   pname = "asmfmt";
-  version = "1.2.1";
+  version = "1.3.2";
 
   goPackagePath = "github.com/klauspost/asmfmt";
 
@@ -14,7 +13,7 @@ buildGoPackage rec {
     owner = "klauspost";
     repo = "asmfmt";
     rev = "v${version}";
-    sha256 = "0qwxb4yx12yl817vgbhs7acaj98lgk27dh50mb8sm9ccw1f43h9i";
+    sha256 = "sha256-YxIVqPGsqxvOY0Qz4Jw5FuO9IbplCICjChosnHrSCgc=";
   };
 
   goDeps = ./deps.nix;

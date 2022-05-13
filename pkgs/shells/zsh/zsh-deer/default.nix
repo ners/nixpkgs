@@ -1,10 +1,8 @@
-{ stdenv, fetchFromGitHub, perl }:
+{ lib, stdenv, fetchFromGitHub, perl }:
 
-let
+stdenv.mkDerivation rec {
+  pname = "deer";
   version = "1.4";
-  name = "deer-${version}";
-in stdenv.mkDerivation {
-  inherit name;
 
   src = fetchFromGitHub {
     owner = "Vifon";
@@ -25,7 +23,7 @@ in stdenv.mkDerivation {
     cp deer $out/share/zsh/site-functions/
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Ranger-like file navigation for zsh";
     homepage = "https://github.com/Vifon/deer";
     license = licenses.gpl3Plus;

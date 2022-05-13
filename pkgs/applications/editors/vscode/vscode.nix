@@ -6,22 +6,25 @@ let
   plat = {
     x86_64-linux = "linux-x64";
     x86_64-darwin = "darwin";
+    aarch64-linux = "linux-arm64";
+    aarch64-darwin = "darwin-arm64";
+    armv7l-linux = "linux-armhf";
   }.${system};
 
-  archive_fmt = if system == "x86_64-darwin" then "zip" else "tar.gz";
+  archive_fmt = if stdenv.isDarwin then "zip" else "tar.gz";
 
   sha256 = {
-    x86_64-linux = "16zchjp72m6n6za4ak5kn2ax1s5pjfn7l082d6gfbb2y62isvs7q";
-    x86_64-darwin = "0w35s6nxagcnd6xcm6bp0m63agkqxffig61cr3nnmpbcgj9zc969";
+    x86_64-linux = "0ss7c0dvlgnfqi0snhx73ndzjbw24xz6pcny4v52mrd1kfhcmpvd";
+    x86_64-darwin = "0ds5jv5q6k1hzrwhcgkyvx0ls9p1q7zh0fqigpxandx6ysrd7cga";
+    aarch64-linux = "12zz02hdhhw19rx9kbi3yd5x81w1vs8vxjrnqqvva8bj0jnwf4iq";
+    aarch64-darwin = "07ws2dc2il7ky77j5pxaxqp5cyw0v04jnv98z1494pdmxyn8gf7q";
+    armv7l-linux = "0khyzc69rbfz2pnbab9v3as1hdzkzxfg3mxvf6g7ax9npvsrqw92";
   }.${system};
 in
   callPackage ./generic.nix rec {
-    # The update script doesn't correctly change the hash for darwin, so please:
-    # nixpkgs-update: no auto update
-
     # Please backport all compatible updates to the stable release.
     # This is important for the extension ecosystem.
-    version = "1.45.0";
+    version = "1.67.0";
     pname = "vscode";
 
     executableName = "code" + lib.optionalString isInsiders "-insiders";
@@ -30,17 +33,20 @@ in
 
     src = fetchurl {
       name = "VSCode_${version}_${plat}.${archive_fmt}";
-      url = "https://vscode-update.azurewebsites.net/${version}/${plat}/stable";
+      url = "https://update.code.visualstudio.com/${version}/${plat}/stable";
       inherit sha256;
     };
 
     sourceRoot = "";
 
-    meta = with stdenv.lib; {
+    updateScript = ./update-vscode.sh;
+
+    meta = with lib; {
       description = ''
         Open source source code editor developed by Microsoft for Windows,
         Linux and macOS
       '';
+      mainProgram = "code";
       longDescription = ''
         Open source source code editor developed by Microsoft for Windows,
         Linux and macOS. It includes support for debugging, embedded Git
@@ -51,7 +57,7 @@ in
       homepage = "https://code.visualstudio.com/";
       downloadPage = "https://code.visualstudio.com/Updates";
       license = licenses.unfree;
-      maintainers = with maintainers; [ eadwu synthetica ];
-      platforms = [ "x86_64-linux" "x86_64-darwin" ];
+      maintainers = with maintainers; [ eadwu synthetica maxeaubrey bobby285271 ];
+      platforms = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" "aarch64-linux" "armv7l-linux" ];
     };
   }

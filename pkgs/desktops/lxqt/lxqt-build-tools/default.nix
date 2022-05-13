@@ -1,28 +1,42 @@
 { lib
+, stdenv
 , mkDerivation
 , fetchFromGitHub
 , cmake
-, pkgconfig
+, pkg-config
 , pcre
 , qtbase
 , glib
+, perl
 , lxqtUpdateScript
 }:
 
 mkDerivation rec {
   pname = "lxqt-build-tools";
-  version = "0.7.0";
+  version = "0.11.0";
 
   src = fetchFromGitHub {
     owner = "lxqt";
     repo = pname;
     rev = version;
-    sha256 = "18l1w9lyf3nyj05wjhaj4lclak6qydlhw9bqi6kxgr1bv8k709lf";
+    sha256 = "vzppKTDwADBG5pOaluT858cWCKFFRaSbHz2Qhe6799E=";
   };
+
+  postPatch = ''
+    # Nix clang on darwin identifies as 'Clang', not 'AppleClang'
+    # Without this, dependants fail to link.
+    substituteInPlace cmake/modules/LXQtCompilerSettings.cmake \
+      --replace AppleClang Clang
+
+    # GLib 2.72 moved the file from gio-unix-2.0 to gio-2.0.
+    # https://github.com/lxqt/lxqt-build-tools/pull/74
+    substituteInPlace cmake/find-modules/FindGLIB.cmake \
+      --replace gio/gunixconnection.h gio/gunixfdlist.h
+  '';
 
   nativeBuildInputs = [
     cmake
-    pkgconfig
+    pkg-config
     setupHook
   ];
 
@@ -30,6 +44,10 @@ mkDerivation rec {
     qtbase
     glib
     pcre
+  ];
+
+  propagatedBuildInputs = [
+    perl # needed by LXQtTranslateDesktop.cmake
   ];
 
   setupHook = ./setup-hook.sh;
@@ -44,10 +62,10 @@ mkDerivation rec {
   passthru.updateScript = lxqtUpdateScript { inherit pname version src; };
 
   meta = with lib; {
-    description = "Various packaging tools and scripts for LXQt applications";
     homepage = "https://github.com/lxqt/lxqt-build-tools";
-    license = licenses.lgpl21;
+    description = "Various packaging tools and scripts for LXQt applications";
+    license = licenses.lgpl21Plus;
     platforms = with platforms; unix;
-    maintainers = with maintainers; [ romildo ];
+    maintainers = teams.lxqt.members;
   };
 }

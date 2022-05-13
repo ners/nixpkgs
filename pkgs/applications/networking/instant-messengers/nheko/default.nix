@@ -3,14 +3,17 @@
 , fetchFromGitHub
 , fetchpatch
 , cmake
+, asciidoc
 , cmark
 , lmdb
 , lmdbxx
-, tweeny
+, libsecret
 , mkDerivation
 , qtbase
+, qtkeychain
 , qtmacextras
 , qtmultimedia
+, qtimageformats
 , qttools
 , qtquickcontrols2
 , qtgraphicaleffects
@@ -18,58 +21,72 @@
 , boost17x
 , spdlog
 , olm
-, pkgconfig
+, pkg-config
 , nlohmann_json
+, coeurl
+, libevent
+, curl
+, voipSupport ? true
+, gst_all_1
+, libnice
 }:
 
 mkDerivation rec {
   pname = "nheko";
-  version = "0.7.1";
+  version = "0.9.3";
 
   src = fetchFromGitHub {
     owner = "Nheko-Reborn";
     repo = "nheko";
     rev = "v${version}";
-    sha256 = "12sxibbrn79sxkf9jrm7jrlj7l5vz15claxrrll7pkv9mv44wady";
+    sha256 = "sha256-h1Yahz7Rt7+r55RFTSVj6E14nWnjCs0CecljceaWgaQ=";
   };
 
   nativeBuildInputs = [
     lmdbxx
     cmake
-    pkgconfig
-  ];
-  cmakeFlags = [
-    # Can be removed once either https://github.com/NixOS/nixpkgs/pull/85254 or
-    # https://github.com/NixOS/nixpkgs/pull/73940 are merged
-    "-DBoost_NO_BOOST_CMAKE=TRUE"
-  ];
-  # commit missing from latest release and recommended by upstream:
-  # https://github.com/NixOS/nixpkgs/pull/85922#issuecomment-619263903
-  patches = [
-    (fetchpatch {
-      name = "room-ids-escape-patch";
-      url = "https://github.com/Nheko-Reborn/nheko/commit/d94ac86816f9f325cba11f71344a3ca99591130d.patch";
-      sha256 = "1p0kj4a60l3jf0rfakc88adld7ccg3vfjhzia5rf2i03h35cxw8c";
-    })
+    pkg-config
+    asciidoc
   ];
 
   buildInputs = [
     nlohmann_json
-    tweeny
     mtxclient
     olm
     boost17x
+    libsecret
     lmdb
     spdlog
     cmark
     qtbase
     qtmultimedia
+    qtimageformats
     qttools
     qtquickcontrols2
     qtgraphicaleffects
-  ] ++ lib.optional stdenv.isDarwin qtmacextras;
+    qtkeychain
+    coeurl
+    libevent
+    curl
+  ] ++ lib.optional stdenv.isDarwin qtmacextras
+    ++ lib.optionals voipSupport (with gst_all_1; [
+      gstreamer
+      gst-plugins-base
+      (gst-plugins-good.override { qt5Support = true; })
+      gst-plugins-bad
+      libnice
+    ]);
 
-  meta = with stdenv.lib; {
+  cmakeFlags = [
+    "-DCOMPILE_QML=ON" # see https://github.com/Nheko-Reborn/nheko/issues/389
+  ];
+
+  preFixup = lib.optionalString voipSupport ''
+    # add gstreamer plugins path to the wrapper
+    qtWrapperArgs+=(--prefix GST_PLUGIN_SYSTEM_PATH_1_0 : "$GST_PLUGIN_SYSTEM_PATH_1_0")
+  '';
+
+  meta = with lib; {
     description = "Desktop client for the Matrix protocol";
     homepage = "https://github.com/Nheko-Reborn/nheko";
     maintainers = with maintainers; [ ekleog fpletz ];

@@ -1,19 +1,21 @@
-{ stdenv, buildGoModule, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub }:
 
 buildGoModule rec {
   pname = "lefthook";
-  version = "0.7.1";
+  version = "0.7.7";
 
   src = fetchFromGitHub {
     rev = "v${version}";
-    owner = "Arkweid";
+    owner = "evilmartians";
     repo = "lefthook";
-    sha256 = "14rcvbzzrx0m3xijl8qhw5l2h0q10hqzad2hqm3079g893f2qad0";
+    sha256 = "sha256-XyuXegCTJSW4uO6fEaRKq/jZnE+JbrxZw0kcDvhpsVo=";
   };
 
-  vendorSha256 = "1pdrw4vwbj9cka2pjbjvxviigfvnrf8sgws27ixwwiblbkj4isc8";
+  vendorSha256 = "sha256-Rp67FnFU27u85t02MIs7wZQoOa8oGsHVVPQ9OdIyTJg=";
 
-  meta = with stdenv.lib; {
+  doCheck = false;
+
+  meta = with lib; {
     description = "Fast and powerful Git hooks manager for any type of projects";
     homepage = "https://github.com/Arkweid/lefthook";
     license = licenses.mit;

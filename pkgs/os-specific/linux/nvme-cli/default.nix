@@ -1,17 +1,20 @@
-{ lib, stdenv, fetchFromGitHub, pkg-config }:
+{ lib, stdenv, fetchFromGitHub, pkg-config
+, libuuid
+}:
 
 stdenv.mkDerivation rec {
   pname = "nvme-cli";
-  version = "1.11.1";
+  version = "1.16";
 
   src = fetchFromGitHub {
     owner = "linux-nvme";
     repo = "nvme-cli";
     rev = "v${version}";
-    sha256 = "06cxs41biqx230grvpk7zid3apcaajjywrccag50krb6h2wqafdl";
+    sha256 = "sha256-/wDQxsN1sji56zfcvqx02iciYnyxjIbL85bNaRwrHYw=";
   };
 
   nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ libuuid ];
 
   makeFlags = [ "DESTDIR=$(out)" "PREFIX=" ];
 
@@ -32,6 +35,6 @@ stdenv.mkDerivation rec {
     '';
     license = licenses.gpl2Plus;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ primeos tavyc ];
+    maintainers = with maintainers; [ mic92 ];
   };
 }

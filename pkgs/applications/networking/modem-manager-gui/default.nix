@@ -1,7 +1,7 @@
-{ stdenv
-, pkgconfig
+{ lib, stdenv
+, pkg-config
 , python3
-, fetchhg
+, fetchFromGitLab
 , fetchpatch
 , gtk3
 , glib
@@ -9,33 +9,26 @@
 , gtkspell3
 , ofono
 , itstool
-, libappindicator-gtk3
+, libayatana-appindicator-gtk3
 , perlPackages
-, glibcLocales
 , meson
 , ninja
 }:
 
 stdenv.mkDerivation rec {
   pname = "modem-manager-gui";
-  version = "0.0.19.1";
+  version = "0.0.20";
 
-  src = fetchhg {
-    url = "https://linuxonly@bitbucket.org/linuxonly/modem-manager-gui";
-    rev = "version ${version}";
-    sha256 = "11iibh36567814h2bz41sa1072b86p1l13xyj670pwkh9k8kw8fd";
+  src = fetchFromGitLab {
+    domain = "salsa.debian.org";
+    owner = "debian";
+    repo = "modem-manager-gui";
+    rev = "upstream%2F${version}";
+    sha256 = "1pjx4rbsxa7gcs628yjkwb0zqrm5xq8pkmp0cfk4flfk1ryflmgr";
   };
 
-  patches = [
-    # Fix docs build
-    (fetchpatch {
-      url = "https://bitbucket.org/linuxonly/modem-manager-gui/commits/68fb09c12413b7de9b7477cbf4241c3527568325/raw";
-      sha256 = "58XIT/RTZ9sjUK2e47h+SqpRWhQ2vbKb2h9MKiHNdgw=";
-    })
-  ];
-
   nativeBuildInputs = [
-    pkgconfig
+    pkg-config
     python3
     perlPackages.Po4a
     itstool
@@ -49,14 +42,28 @@ stdenv.mkDerivation rec {
     gdbm
     gtkspell3
     ofono
-    libappindicator-gtk3
+    libayatana-appindicator-gtk3
+  ];
+
+  patches = [
+    # Fix missing tray icon
+    (fetchpatch {
+      url = "https://salsa.debian.org/debian/modem-manager-gui/-/raw/7c3e67a1cf7788d7a4b86be12803870d79aa27f2/debian/patches/fix-tray-icon.patch";
+      sha256 = "sha256-9LjCEQl8YfraVlO1W7+Yy7egLAPu5YfnvGvCI3uGFh8=";
+    })
+    # Fix build with meson 0.61
+    # appdata/meson.build:3:5: ERROR: Function does not take positional arguments.
+    (fetchpatch {
+      url = "https://salsa.debian.org/debian/modem-manager-gui/-/raw/7c3e67a1cf7788d7a4b86be12803870d79aa27f2/debian/patches/meson0.61.patch";
+      sha256 = "sha256-B+tBPIz5RxOwZWYEWttqSKGw2Wbfk0mnBY0Zy0evvAQ=";
+    })
   ];
 
   postPatch = ''
     patchShebangs man/manhelper.py
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An app to send/receive SMS, make USSD requests, control mobile data usage and more";
     longDescription = ''
       A simple GTK based GUI compatible with Modem manager, Wader and oFono
@@ -66,7 +73,7 @@ stdenv.mkDerivation rec {
     '';
     homepage = "https://linuxonly.ru/page/modem-manager-gui";
     license = licenses.gpl3;
-    maintainers = with maintainers; [ ahuzik ];
+    maintainers = with maintainers; [ ahuzik galagora ];
     platforms = platforms.linux;
   };
 }

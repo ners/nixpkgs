@@ -1,16 +1,18 @@
 { lib
 , fetchPypi
+, fetchpatch
 , python
 , buildPythonPackage
 , gfortran
+, hypothesis
 , pytest
 , blas
 , lapack
 , writeTextFile
-, isPyPy
 , cython
 , setuptoolsBuildHook
- }:
+, pythonOlder
+}:
 
 assert (!blas.isILP64) && (!lapack.isILP64);
 
@@ -21,31 +23,37 @@ let
       ${blas.implementation} = {
         include_dirs = "${lib.getDev blas}/include:${lib.getDev lapack}/include";
         library_dirs = "${blas}/lib:${lapack}/lib";
+        runtime_library_dirs = "${blas}/lib:${lapack}/lib";
         libraries = "lapack,lapacke,blas,cblas";
       };
       lapack = {
         include_dirs = "${lib.getDev lapack}/include";
         library_dirs = "${lapack}/lib";
+        runtime_library_dirs = "${lapack}/lib";
       };
       blas = {
         include_dirs = "${lib.getDev blas}/include";
         library_dirs = "${blas}/lib";
+        runtime_library_dirs = "${blas}/lib";
       };
     });
   };
 in buildPythonPackage rec {
   pname = "numpy";
-  version = "1.18.3";
+
+  # Attention! v1.22.0 breaks scipy and by extension scikit-learn, so
+  # build both to verify they don't break.
+  # https://github.com/scipy/scipy/issues/15414
+  version = "1.21.5";
+
   format = "pyproject.toml";
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
     extension = "zip";
-    sha256 = "e46e2384209c91996d5ec16744234d1c906ab79a701ce1a26155c9ec890b8dc8";
+    sha256 = "sha256-alkovGJBJk3OXtUJ5m8zZ2/Jf0ZOepGe3GcvtVMiIe4=";
   };
-
-  nativeBuildInputs = [ gfortran pytest cython setuptoolsBuildHook ];
-  buildInputs = [ blas lapack ];
 
   patches = lib.optionals python.hasDistutilsCxxPatch [
     # We patch cpython/distutils to fix https://bugs.python.org/issue1222585
@@ -54,9 +62,16 @@ in buildPythonPackage rec {
     ./numpy-distutils-C++.patch
   ];
 
+  nativeBuildInputs = [ gfortran cython setuptoolsBuildHook ];
+  buildInputs = [ blas lapack ];
+
+  # we default openblas to build with 64 threads
+  # if a machine has more than 64 threads, it will segfault
+  # see https://github.com/xianyi/OpenBLAS/issues/2993
   preConfigure = ''
     sed -i 's/-faltivec//' numpy/distutils/system_info.py
     export NPY_NUM_BUILD_JOBS=$NIX_BUILD_CORES
+    export OMP_NUM_THREADS=$((NIX_BUILD_CORES > 64 ? 64 : NIX_BUILD_CORES))
   '';
 
   preBuild = ''
@@ -65,7 +80,10 @@ in buildPythonPackage rec {
 
   enableParallelBuilding = true;
 
-  doCheck = !isPyPy; # numpy 1.16+ hits a bug in pypy's ctypes, using either numpy or pypy HEAD fixes this (https://github.com/numpy/numpy/issues/13807)
+  checkInputs = [
+    pytest
+    hypothesis
+  ];
 
   checkPhase = ''
     runHook preCheck
@@ -89,6 +107,7 @@ in buildPythonPackage rec {
   meta = {
     description = "Scientific tools for Python";
     homepage = "https://numpy.org/";
+    license = lib.licenses.bsd3;
     maintainers = with lib.maintainers; [ fridh ];
   };
 }

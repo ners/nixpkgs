@@ -1,11 +1,10 @@
-{ stdenv
-, lib
+{ lib
 , buildPythonPackage
 , fetchPypi
-, fetchurl
 , cython
 , enum34
 , gfortran
+, isPy27
 , isPy3k
 , numpy
 , pytest
@@ -16,11 +15,13 @@
 
 buildPythonPackage rec {
   pname = "scikits.odes";
-  version = "2.6.1";
+  version = "2.6.3";
+
+  disabled = isPy27;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0kbf2n16h9s35x6pavlx6sff0pqr68i0x0609z92a4vadni32n6b";
+    sha256 = "9693da78d1bd0bd6af8db59aeaaed92a399c6af36960c6a0a665a2130eab59e7";
   };
 
   nativeBuildInputs = [
@@ -42,11 +43,11 @@ buildPythonPackage rec {
     pytest
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A scikit offering extra ode/dae solvers, as an extension to what is available in scipy";
     homepage = "https://github.com/bmcage/odes";
     license = licenses.bsd3;
-    maintainers = with maintainers; [ flokli idontgetoutmuch ];
+    maintainers = with maintainers; [ idontgetoutmuch ];
     platforms = [ "aarch64-linux" "x86_64-linux" "x86_64-darwin" ];
   };
 }

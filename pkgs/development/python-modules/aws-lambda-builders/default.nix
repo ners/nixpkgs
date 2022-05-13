@@ -5,23 +5,22 @@
 , pytest
 , mock
 , parameterized
-, isPy35
+, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "aws-lambda-builders";
-  version = "0.8.0";
+  version = "1.16.0";
+  format = "setuptools";
 
-  # No tests available in PyPI tarball
+  disabled = pythonOlder "3.7";
+
   src = fetchFromGitHub {
     owner = "awslabs";
     repo = "aws-lambda-builders";
-    rev = "v${version}";
-    sha256 = "1akiv92cd7ciky0aay94lh9azr73jajn0x0x6ywaf3qm5c4hyvys";
+    rev = "refs/tags/v${version}";
+    sha256 = "sha256-XJDukyYTtnAHiHACi5gEJ9VPjqv8Y4V7oe4q3l5fpMA=";
   };
-
-  # Package is not compatible with Python 3.5
-  disabled = isPy35;
 
   propagatedBuildInputs = [
     six

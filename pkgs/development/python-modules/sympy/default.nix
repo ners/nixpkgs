@@ -1,18 +1,17 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, fetchpatch
 , glibcLocales
 , mpmath
 }:
 
 buildPythonPackage rec {
   pname = "sympy";
-  version = "1.5.1"; # Upgrades may break sage. Please test or ping @timokau.
+  version = "1.10.1";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "d77901d748287d15281f5ffe5b0fef62dd38f357c2b827c44ff07f35695f4e7e";
+    sha256 = "sha256-WTnu/9+eFSFyYBRjYmwCKiwn51z2J43o1AHVDJ1YeHs=";
   };
 
   checkInputs = [ glibcLocales ];
@@ -31,6 +30,6 @@ buildPythonPackage rec {
     description = "A Python library for symbolic mathematics";
     homepage    = "https://www.sympy.org/";
     license     = licenses.bsd3;
-    maintainers = with maintainers; [ lovek323 timokau ];
+    maintainers = with maintainers; [ lovek323 ] ++ teams.sage.members;
   };
 }

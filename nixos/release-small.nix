@@ -28,7 +28,7 @@ let
 in rec {
 
   nixos = {
-    inherit (nixos') channel manual options iso_minimal dummy;
+    inherit (nixos') channel manual options iso_minimal amazonImage dummy;
     tests = {
       inherit (nixos'.tests)
         containers-imperative
@@ -38,7 +38,8 @@ in rec {
         login
         misc
         nat
-        nfs3
+        # fails with kernel >= 5.15 https://github.com/NixOS/nixpkgs/pull/152505#issuecomment-1005049314
+        #nfs3
         openssh
         php
         predictable-interface-names
@@ -92,6 +93,7 @@ in rec {
       [ "nixos.channel"
         "nixos.dummy.x86_64-linux"
         "nixos.iso_minimal.x86_64-linux"
+        "nixos.amazonImage.x86_64-linux"
         "nixos.manual.x86_64-linux"
         "nixos.tests.boot.biosCdrom.x86_64-linux"
         "nixos.tests.containers-imperative.x86_64-linux"
@@ -106,7 +108,8 @@ in rec {
         "nixos.tests.nat.firewall-conntrack.x86_64-linux"
         "nixos.tests.nat.firewall.x86_64-linux"
         "nixos.tests.nat.standalone.x86_64-linux"
-        "nixos.tests.nfs3.simple.x86_64-linux"
+        # fails with kernel >= 5.15 https://github.com/NixOS/nixpkgs/pull/152505#issuecomment-1005049314
+        #"nixos.tests.nfs3.simple.x86_64-linux"
         "nixos.tests.openssh.x86_64-linux"
         "nixos.tests.php.fpm.x86_64-linux"
         "nixos.tests.php.pcre.x86_64-linux"

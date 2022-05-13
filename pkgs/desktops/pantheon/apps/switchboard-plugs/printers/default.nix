@@ -1,10 +1,11 @@
-{ stdenv
+{ lib
+, stdenv
 , fetchFromGitHub
+, nix-update-script
 , fetchpatch
-, pantheon
 , meson
 , ninja
-, pkgconfig
+, pkg-config
 , vala
 , libgee
 , granite
@@ -15,25 +16,28 @@
 
 stdenv.mkDerivation rec {
   pname = "switchboard-plug-printers";
-  version = "2.1.8";
+  version = "2.1.10";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "0nnzwpfxkvgsw3g329926c3m7vci6vyb60qib7b9mpgicmsqnkvz";
+    sha256 = "0frvybbx7mcs87kww0if4zn0c6c2gb400cpiqrl8b0294py58xpb";
   };
 
-  passthru = {
-    updateScript = pantheon.updateScript {
-      attrPath = "pantheon.${pname}";
-    };
-  };
+  patches = [
+    # Upstream code not respecting our localedir
+    # https://github.com/elementary/switchboard-plug-printers/pull/153
+    (fetchpatch {
+      url = "https://github.com/elementary/switchboard-plug-printers/commit/3e2b01378cbb8e666d23daeef7f40fcaa90daa45.patch";
+      sha256 = "0b8pq525xnir06pn65rcz68bcp5xdxl0gpbj7p5x1hs23p5dp04n";
+    })
+  ];
 
   nativeBuildInputs = [
     meson
     ninja
-    pkgconfig
+    pkg-config
     vala
   ];
 
@@ -45,12 +49,18 @@ stdenv.mkDerivation rec {
     switchboard
   ];
 
-  meta = with stdenv.lib; {
+  passthru = {
+    updateScript = nix-update-script {
+      attrPath = "pantheon.${pname}";
+    };
+  };
+
+  meta = with lib; {
     description = "Switchboard Printers Plug";
     homepage = "https://github.com/elementary/switchboard-plug-printers";
-    license = licenses.lgpl3Plus;
+    license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    maintainers = pantheon.maintainers;
+    maintainers = teams.pantheon.members;
   };
 
 }

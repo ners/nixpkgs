@@ -5,10 +5,11 @@
 , enableQT             ? false
 , enableXM             ? false
 , enableOpenGLX11      ? true
+, enablePython         ? false
 , enableRaytracerX11   ? false
 
 # Standard build environment with cmake.
-, stdenv, fetchurl, fetchpatch, cmake
+, lib, stdenv, fetchurl, fetchpatch, cmake
 
 # Optional system packages, otherwise internal GEANT4 packages are used.
 , clhep ? null # not packaged currently
@@ -20,6 +21,7 @@
 
 # For enableQT.
 , qtbase
+, wrapQtAppsHook
 
 # For enableXM.
 , motif
@@ -33,15 +35,26 @@
 , libGLU, libGL
 , xlibsWrapper
 , libXmu
+
+# For enablePython
+, boost
+, python3
+
+# For tests
+, callPackage
 }:
 
+let
+  boost_python = boost.override { enablePython = true; python = python3; };
+in
+
 stdenv.mkDerivation rec {
-  version = "10.6.1";
+  version = "11.0.0";
   pname = "geant4";
 
   src = fetchurl{
-    url = "https://geant4-data.web.cern.ch/geant4-data/releases/geant4.10.06.p01.tar.gz";
-    sha256 = "0ssxg7dd7vxljb3fdyb0llg7gsxack21qjfsb3n23k107a19yibk";
+    url = "https://cern.ch/geant4-data/releases/geant4-v${version}.tar.gz";
+    sha256 = "sha256-PMin350/8ceiGmLS6zoQvhX2uxWNOTI78yEzScnvdbk=";
   };
 
   cmakeFlags = [
@@ -52,39 +65,52 @@ stdenv.mkDerivation rec {
     "-DGEANT4_USE_XM=${if enableXM then "ON" else "OFF"}"
     "-DGEANT4_USE_OPENGL_X11=${if enableOpenGLX11 then "ON" else "OFF"}"
     "-DGEANT4_USE_INVENTOR=${if enableInventor then "ON" else "OFF"}"
+    "-DGEANT4_USE_PYTHON=${if enablePython then "ON" else "OFF"}"
     "-DGEANT4_USE_RAYTRACER_X11=${if enableRaytracerX11 then "ON" else "OFF"}"
     "-DGEANT4_USE_SYSTEM_CLHEP=${if clhep != null then "ON" else "OFF"}"
     "-DGEANT4_USE_SYSTEM_EXPAT=${if expat != null then "ON" else "OFF"}"
     "-DGEANT4_USE_SYSTEM_ZLIB=${if zlib != null then "ON" else "OFF"}"
     "-DGEANT4_BUILD_MULTITHREADED=${if enableMultiThreading then "ON" else "OFF"}"
-  ] ++ stdenv.lib.optionals enableInventor [
+  ] ++ lib.optionals (enableMultiThreading && enablePython) [
+    "-DGEANT4_BUILD_TLS_MODEL=global-dynamic"
+  ] ++ lib.optionals enableInventor [
     "-DINVENTOR_INCLUDE_DIR=${coin3d}/include"
     "-DINVENTOR_LIBRARY_RELEASE=${coin3d}/lib/libCoin.so"
   ];
 
-  enableParallelBuilding = true;
-  nativeBuildInputs =  [ cmake ];
+  nativeBuildInputs =  [
+    cmake
+  ] ++ lib.optionals enableQT [
+    wrapQtAppsHook
+  ];
+
+  dontWrapQtApps = !enableQT;
 
   buildInputs = [ libGLU xlibsWrapper libXmu ]
-    ++ stdenv.lib.optionals enableInventor [ libXpm coin3d soxt motif ];
+    ++ lib.optionals enableInventor [ libXpm coin3d soxt motif ]
+    ++ lib.optionals enablePython [ boost_python python3 ];
 
   propagatedBuildInputs = [ clhep expat zlib libGL ]
-    ++ stdenv.lib.optionals enableGDML [ xercesc ]
-    ++ stdenv.lib.optionals enableXM [ motif ]
-    ++ stdenv.lib.optionals enableQT [ qtbase ];
+    ++ lib.optionals enableGDML [ xercesc ]
+    ++ lib.optionals enableXM [ motif ]
+    ++ lib.optionals enableQT [ qtbase ];
 
   postFixup = ''
     # Don't try to export invalid environment variables.
     sed -i 's/export G4\([A-Z]*\)DATA/#export G4\1DATA/' "$out"/bin/geant4.sh
+  '' + lib.optionalString enableQT ''
+    wrapQtAppsHook
   '';
 
   setupHook = ./geant4-hook.sh;
 
   passthru = {
     data = import ./datasets.nix {
-          inherit stdenv fetchurl;
+          inherit lib stdenv fetchurl;
           geant_version = version;
       };
+
+    tests = callPackage ./tests.nix {};
   };
 
   # Set the myriad of envars required by Geant4 if we use a nix-shell.
@@ -92,7 +118,7 @@ stdenv.mkDerivation rec {
     source $out/nix-support/setup-hook
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A toolkit for the simulation of the passage of particles through matter";
     longDescription = ''
       Geant4 is a toolkit for the simulation of the passage of particles through matter.
@@ -101,7 +127,7 @@ stdenv.mkDerivation rec {
     '';
     homepage = "http://www.geant4.org";
     license = licenses.g4sl;
-    maintainers = with maintainers; [ tmplt omnipotententity ];
+    maintainers = with maintainers; [ omnipotententity ];
     platforms = platforms.linux;
   };
 }

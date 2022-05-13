@@ -1,12 +1,12 @@
-{ stdenv, fetchurl, coreutils, ncurses }:
+{ lib, stdenv, fetchurl, coreutils, ncurses, fetchpatch }:
 
 stdenv.mkDerivation rec {
   pname = "entr";
-  version = "4.5";
+  version = "5.1";
 
   src = fetchurl {
-    url = "http://entrproject.org/code/${pname}-${version}.tar.gz";
-    sha256 = "08gsd99w20fdi0apppmzsh06z29ga8y89nfcizidil2hkl8b7jyn";
+    url = "https://eradman.com/entrproject/code/${pname}-${version}.tar.gz";
+    hash = "sha256-D4f1d7zodkHFJa3bm8xgu6pXn+mB2rdZBD484VVtu5I=";
   };
 
   postPatch = ''
@@ -21,9 +21,10 @@ stdenv.mkDerivation rec {
   checkTarget = "test";
   installFlags = [ "PREFIX=$(out)" ];
 
-  meta = with stdenv.lib; {
-    homepage = "http://entrproject.org/";
+  meta = with lib; {
+    homepage = "https://eradman.com/entrproject/";
     description = "Run arbitrary commands when files change";
+    changelog = "https://github.com/eradman/entr/raw/${version}/NEWS";
     license = licenses.isc;
     platforms = platforms.all;
     maintainers = with maintainers; [ pSub synthetica ];

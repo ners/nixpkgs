@@ -1,24 +1,24 @@
-{ stdenv, fetchurl, mkfontscale
+{ lib, stdenv, fetchurl, mkfontscale
 , libfaketime, fonttosfnt
 }:
 
 stdenv.mkDerivation rec {
   pname = "unifont";
-  version = "13.0.01";
+  version = "14.0.03";
 
   ttf = fetchurl {
     url = "mirror://gnu/unifont/${pname}-${version}/${pname}-${version}.ttf";
-    sha256 = "0y5bd7i5hp9ks6d3qq0bshywba7g90i3074wckpn9m8shh98ngcg";
+    sha256 = "1qyc7nqyhjnarwgpkah52qv7hr0yfzak7084ilrj7z0nii4f5y57";
   };
 
   pcf = fetchurl {
     url = "mirror://gnu/unifont/${pname}-${version}/${pname}-${version}.pcf.gz";
-    sha256 = "05zgz00n514cijqh9qcvr4iz0bla4hd028cvi1jlh0ic6fkafix8";
+    sha256 = "1sgvxpr4ydjnbk70j0lpgxz5x851lmrmxjb5x8lsz0i2hm32jdbc";
   };
 
   nativeBuildInputs = [ libfaketime fonttosfnt mkfontscale ];
 
-  phases = [ "buildPhase" "installPhase" ];
+  dontUnpack = true;
 
   buildPhase =
     ''
@@ -30,8 +30,8 @@ stdenv.mkDerivation rec {
   installPhase =
     ''
       # install otb fonts
-      install -m 644 -D unifont.otb "$otb/share/fonts/unifont.otb"
-      mkfontdir "$otb/share/fonts"
+      install -m 644 -D unifont.otb "$out/share/fonts/unifont.otb"
+      mkfontdir "$out/share/fonts"
 
       # install pcf and ttf fonts
       install -m 644 -D ${pcf} $out/share/fonts/unifont.pcf.gz
@@ -41,14 +41,12 @@ stdenv.mkDerivation rec {
       mkfontscale
     '';
 
-  outputs = [ "out" "otb" ];
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Unicode font for Base Multilingual Plane";
-    homepage = "http://unifoundry.com/unifont.html";
+    homepage = "https://unifoundry.com/unifont/";
 
     # Basically GPL2+ with font exception.
-    license = "http://unifoundry.com/LICENSE.txt";
+    license = "https://unifoundry.com/LICENSE.txt";
     maintainers = [ maintainers.rycee maintainers.vrthra ];
     platforms = platforms.all;
   };

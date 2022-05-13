@@ -4,33 +4,40 @@
 , cmake
 , future
 , numpy
+, qdldl
+, setuptools-scm
 , scipy
 # check inputs
 , pytestCheckHook
+, cvxopt
 }:
 
 buildPythonPackage rec {
   pname = "osqp";
-  version = "0.6.1";
+  version = "0.6.2.post5";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "130frig5bznfacqp9jwbshmbqd2xw3ixdspsbkrwsvkdaab7kca7";
+    sha256 = "b2fa17aae42a7ed498ec261b33f262bb4b3605e7e8464062159d9fae817f0d61";
   };
 
-  nativeBuildInputs = [ cmake ];
+  SETUPTOOLS_SCM_PRETEND_VERSION = version;
+
+  nativeBuildInputs = [ cmake setuptools-scm ];
   dontUseCmakeConfigure = true;
 
   propagatedBuildInputs = [
     future
     numpy
+    qdldl
     scipy
   ];
 
   pythonImportsCheck = [ "osqp" ];
-  checkInputs = [ pytestCheckHook ];
-  dontUseSetuptoolsCheck = true;  # don't run checks twice
-  disabledTests = [ "mkl_" ];
+  checkInputs = [ pytestCheckHook cvxopt ];
+  disabledTests = [
+    "mkl_"
+  ];
 
   meta = with lib; {
     description = "The Operator Splitting QP Solver";

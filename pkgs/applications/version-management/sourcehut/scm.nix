@@ -1,15 +1,21 @@
-{ stdenv, fetchgit, buildPythonPackage
-, srht, redis, pyyaml, buildsrht
-, writeText }:
+{ lib
+, fetchFromSourcehut
+, buildPythonPackage
+, srht
+, redis
+, pyyaml
+, buildsrht
+}:
 
 buildPythonPackage rec {
   pname = "scmsrht";
-  version = "0.19.11";
+  version = "0.22.19"; # Untagged version
 
-  src = fetchgit {
-    url = "https://git.sr.ht/~sircmpwn/scm.sr.ht";
+  src = fetchFromSourcehut {
+    owner = "~sircmpwn";
+    repo = "scm.sr.ht";
     rev = version;
-    sha256 = "a0JIZcO/3op409t+jq4/fImuppuGqfGxBPgBh67DGHM=";
+    sha256 = "sha256-/QryPjWJ2S0Ov9DTdrwbM81HYucHiYcLh0oKacflywI=";
   };
 
   nativeBuildInputs = srht.nativeBuildInputs;
@@ -26,11 +32,12 @@ buildPythonPackage rec {
   '';
 
   dontUseSetuptoolsCheck = true;
+  pythonImportsCheck = [ "scmsrht" ];
 
-  meta = with stdenv.lib; {
-    homepage = "https://git.sr.ht/~sircmpwn/git.sr.ht";
+  meta = with lib; {
+    homepage = "https://git.sr.ht/~sircmpwn/scm.sr.ht";
     description = "Shared support code for sr.ht source control services.";
-    license = licenses.agpl3;
+    license = licenses.agpl3Only;
     maintainers = with maintainers; [ eadwu ];
   };
 }

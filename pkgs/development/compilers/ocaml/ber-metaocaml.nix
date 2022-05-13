@@ -1,12 +1,12 @@
-{ stdenv, fetchurl
+{ lib, stdenv, fetchurl
 , ncurses
 , libX11, xorgproto, buildEnv
 }:
 
 let
-   useX11 = stdenv.isi686 || stdenv.isx86_64;
+   useX11 = stdenv.hostPlatform.isx86;
    x11deps = [ libX11 xorgproto ];
-   inherit (stdenv.lib) optionals;
+   inherit (lib) optionals;
 
    baseOcamlBranch  = "4.07";
    baseOcamlVersion = "${baseOcamlBranch}.1";
@@ -78,9 +78,9 @@ stdenv.mkDerivation rec {
     nativeCompilers = true;
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description     = "Multi-Stage Programming extension for OCaml";
-    homepage        = "http://okmij.org/ftp/ML/MetaOCaml.html";
+    homepage        = "https://okmij.org/ftp/ML/MetaOCaml.html";
     license         = with licenses; [ /* compiler */ qpl /* library */ lgpl2 ];
     maintainers     = with maintainers; [ thoughtpolice ];
 

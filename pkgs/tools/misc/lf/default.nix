@@ -2,35 +2,25 @@
 
 buildGoModule rec {
   pname = "lf";
-  version = "14";
+  version = "27";
 
   src = fetchFromGitHub {
     owner = "gokcehan";
     repo = "lf";
     rev = "r${version}";
-    sha256 = "0kl9yrgph1i0jbxhlg3k0411436w80xw1s8dzd7v7h2raygkb4is";
+    hash = "sha256-CrtVw3HhrC+D3c4ltHX8FSQnDvBpQJ890oJHoD6qPt4=";
   };
 
-  vendorSha256 = "1zb2z3c2w4gnq9cjczg1y7r7jg4mlrm2hsb12dqd9w8mh44rvr37";
+  vendorSha256 = "sha256-evkQT624EGj6MUwx3/ajdIbUMYjA1QyOnIQFtTLt0Yo=";
 
   nativeBuildInputs = [ installShellFiles ];
 
-  # TODO: Setting buildFlags probably isn't working properly. I've tried a few
-  # variants, e.g.:
-  # - buildFlags = [ "-ldflags" "\"-s" "-w"" ""-X 'main.gVersion=${version}'\"" ];
-  # - buildFlags = [ "-ldflags" "\\\"-X" "${goPackagePath}/main.gVersion=${version}\\\"" ];
-  # Override the build phase (to set buildFlags):
-  buildPhase = ''
-    runHook preBuild
-    runHook renameImports
-    go install -ldflags="-s -w -X main.gVersion=r${version}"
-    runHook postBuild
-  '';
+  ldflags = [ "-s" "-w" "-X main.gVersion=r${version}" ];
 
   postInstall = ''
     install -D --mode=444 lf.desktop $out/share/applications/lf.desktop
     installManPage lf.1
-    installShellCompletion etc/lf.{zsh,fish}
+    installShellCompletion etc/lf.{bash,zsh,fish}
   '';
 
   meta = with lib; {
@@ -45,6 +35,6 @@ buildGoModule rec {
     changelog = "https://github.com/gokcehan/lf/releases/tag/r${version}";
     license = licenses.mit;
     platforms = platforms.unix;
-    maintainers = with maintainers; [ primeos ];
+    maintainers = with maintainers; [ dotlambda ];
   };
 }

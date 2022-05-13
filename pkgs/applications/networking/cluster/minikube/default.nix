@@ -1,56 +1,55 @@
-{ stdenv
+{ lib
+, stdenv
 , buildGoModule
 , fetchFromGitHub
-, go-bindata
 , installShellFiles
 , pkg-config
 , which
 , libvirt
 , vmnet
+, makeWrapper
 }:
 
 buildGoModule rec {
   pname = "minikube";
-  version = "1.10.1";
+  version = "1.25.2";
 
-  # for -ldflags
-  commit = "63ab801ac27e5742ae442ce36dff7877dcccb278";
+  vendorSha256 = "sha256-8QqRIWry15/xwBxEOexMEq57ol8riy+kW8WrQqr53Q8=";
 
-  vendorSha256 = "1l9dxn7yy21x4b3cg6l5a08wx2ng8qf531ilg8yf1rznwfwjajrv";
+  doCheck = false;
 
   src = fetchFromGitHub {
     owner = "kubernetes";
     repo = "minikube";
     rev = "v${version}";
-    sha256 = "05lv6k0j0l00s2895fryp027aa40whbf1gf3fhfg0z5d3p9sbprk";
+    sha256 = "sha256-WIk4ibq7jcqao0Qiz3mz9yfHdxTUlvtPuEh4gApSDBg=";
   };
 
-  nativeBuildInputs = [ go-bindata installShellFiles pkg-config which ];
+  nativeBuildInputs = [ installShellFiles pkg-config which makeWrapper ];
 
   buildInputs = if stdenv.isDarwin then [ vmnet ] else if stdenv.isLinux then [ libvirt ] else null;
 
   buildPhase = ''
-    make COMMIT=${commit}
+    make COMMIT=${src.rev}
   '';
 
   installPhase = ''
     install out/minikube -Dt $out/bin
 
+    wrapProgram $out/bin/minikube --set MINIKUBE_WANTUPDATENOTIFICATION false
     export HOME=$PWD
-    export MINIKUBE_WANTUPDATENOTIFICATION=false
-    export MINIKUBE_WANTKUBECTLDOWNLOADMSG=false
 
-    for shell in bash zsh; do
+    for shell in bash zsh fish; do
       $out/bin/minikube completion $shell > minikube.$shell
       installShellCompletion minikube.$shell
     done
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://minikube.sigs.k8s.io";
     description = "A tool that makes it easy to run Kubernetes locally";
     license = licenses.asl20;
-    maintainers = with maintainers; [ ebzzry copumpkin vdemeester atkinschang ];
+    maintainers = with maintainers; [ ebzzry copumpkin vdemeester atkinschang Chili-Man ];
     platforms = platforms.unix;
   };
 }

@@ -1,7 +1,6 @@
 { buildPythonPackage
-, fetchFromGitHub
+, fetchPypi
 , pytest
-, six
 , tqdm
 , pyyaml
 , docopt
@@ -10,27 +9,25 @@
 , args
 , schema
 , responses
-, backports_csv
-, isPy3k
 , lib
 , glibcLocales
 , setuptools
+, urllib3
+, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "internetarchive";
-  version = "1.9.3";
+  version = "3.0.0";
 
-  # Can't use pypi, data files for tests missing
-  src = fetchFromGitHub {
-    owner = "jjjake";
-    repo = "internetarchive";
-    rev = "v${version}";
-    sha256 = "19av6cpps2qldfl3wb9mcirs1a48a4466m1v9k9yhdznqi4zb0ji";
+  disabled = pythonOlder "3.7";
+
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "sha256-fRcqsT8p/tqXUpU2/9lAEF1IT8Cy5KK0+jKaeVwZshI=";
   };
 
   propagatedBuildInputs = [
-    six
     tqdm
     pyyaml
     docopt
@@ -39,7 +36,8 @@ buildPythonPackage rec {
     args
     schema
     setuptools
-  ] ++ lib.optionals (!isPy3k) [ backports_csv ];
+    urllib3
+  ];
 
   checkInputs = [ pytest responses glibcLocales ];
 
@@ -50,10 +48,13 @@ buildPythonPackage rec {
     LC_ALL=en_US.utf-8 pytest tests
   '';
 
+  pythonImportsCheck = [ "internetarchive" ];
+
   meta = with lib; {
     description = "A Python and Command-Line Interface to Archive.org";
     homepage = "https://github.com/jjjake/internetarchive";
-    license = licenses.agpl3;
+    changelog = "https://github.com/jjjake/internetarchive/raw/v${version}/HISTORY.rst";
+    license = licenses.agpl3Plus;
     maintainers = [ maintainers.marsam ];
   };
 }

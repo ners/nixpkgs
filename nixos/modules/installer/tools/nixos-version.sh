@@ -1,4 +1,5 @@
-#! @shell@
+#! @runtimeShell@
+# shellcheck shell=bash
 
 case "$1" in
   -h|--help)

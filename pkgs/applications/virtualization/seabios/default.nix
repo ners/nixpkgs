@@ -1,16 +1,21 @@
-{ stdenv, fetchurl, iasl, python }:
+{ lib, stdenv, fetchgit, acpica-tools, python3 }:
 
 stdenv.mkDerivation rec {
 
   pname = "seabios";
-  version = "1.13.0";
+  version = "1.16.0";
 
-  src = fetchurl {
-    url = "https://www.seabios.org/downloads/${pname}-${version}.tar.gz";
-    sha256 = "00z7vdahpxa37irlf8ld350dp6z9qfyfb56vbfqr319hsv13srrp";
+  src = fetchgit {
+    url = "https://git.seabios.org/seabios.git";
+    rev = "rel-${version}";
+    sha256 = "0acal1rr7sya86wlhw2mgimabwhjnr0y1pl5zxwb79j8k1w1r8sh";
   };
 
-  buildInputs = [ iasl python ];
+  nativeBuildInputs = [ python3 ];
+
+  buildInputs = [ acpica-tools ];
+
+  strictDeps = true;
 
   hardeningDisable = [ "pic" "stackprotector" "fortify" ];
 
@@ -30,7 +35,7 @@ stdenv.mkDerivation rec {
     cp out/Csm16.bin $out/Csm16.bin
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Open source implementation of a 16bit X86 BIOS";
     longDescription = ''
       SeaBIOS is an open source implementation of a 16bit X86 BIOS.
@@ -39,8 +44,7 @@ stdenv.mkDerivation rec {
     '';
     homepage = "http://www.seabios.org";
     license = licenses.lgpl3;
-    maintainers = [ maintainers.tstrobel ];
+    maintainers = with maintainers; [ tstrobel ];
     platforms = [ "i686-linux" "x86_64-linux" ];
   };
 }
-

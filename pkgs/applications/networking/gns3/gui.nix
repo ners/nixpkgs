@@ -1,20 +1,41 @@
-{ stable, branch, version, sha256Hash, mkOverride, commonOverrides }:
+{ stable
+, branch
+, version
+, sha256Hash
+, mkOverride
+, commonOverrides
+}:
 
-{ lib, stdenv, python3, fetchFromGitHub }:
+{ lib
+, python3
+, fetchFromGitHub
+, wrapQtAppsHook
+}:
 
 let
-  # TODO: This package requires qt5Full to launch
   defaultOverrides = commonOverrides ++ [
-    (mkOverride "jsonschema" "2.6.0"
-      "00kf3zmpp9ya4sydffpifn0j0mzm342a2vzh82p6r0vh10cg7xbg")
   ];
 
   python = python3.override {
-    packageOverrides = lib.foldr lib.composeExtensions (self: super: { }) defaultOverrides;
+    packageOverrides = lib.foldr lib.composeExtensions (self: super: {
+      jsonschema = super.jsonschema.overridePythonAttrs (oldAttrs: rec {
+        version = "3.2.0";
+
+        src = super.fetchPypi {
+          inherit (oldAttrs) pname;
+          inherit version;
+          sha256 = "sha256-yKhbKNN3zHc35G4tnytPRO48Dh3qxr9G3e/HGH0weXo=";
+        };
+
+        SETUPTOOLS_SCM_PRETEND_VERSION = version;
+
+        doCheck = false;
+      });
+    }) defaultOverrides;
   };
 in python.pkgs.buildPythonPackage rec {
-  name = "${pname}-${version}";
   pname = "gns3-gui";
+  inherit version;
 
   src = fetchFromGitHub {
     owner = "GNS3";
@@ -23,15 +44,36 @@ in python.pkgs.buildPythonPackage rec {
     sha256 = sha256Hash;
   };
 
+  nativeBuildInputs = [
+    wrapQtAppsHook
+  ];
+
   propagatedBuildInputs = with python.pkgs; [
-    raven psutil jsonschema # tox for check
-    # Runtime dependencies
-    sip (pyqt5.override { withWebSockets = true; }) distro setuptools
+    distro
+    jsonschema
+    psutil
+    sentry-sdk
+    setuptools
+    sip_4 (pyqt5.override { withWebSockets = true; })
   ];
 
   doCheck = false; # Failing
 
-  meta = with stdenv.lib; {
+  dontWrapQtApps = true;
+
+  postFixup = ''
+      wrapQtApp "$out/bin/gns3"
+  '';
+
+  postPatch = ''
+    substituteInPlace requirements.txt \
+      --replace "sentry-sdk==" "sentry-sdk>=" \
+      --replace "psutil==" "psutil>=" \
+      --replace "distro==" "distro>=" \
+      --replace "setuptools==" "setuptools>="
+  '';
+
+  meta = with lib; {
     description = "Graphical Network Simulator 3 GUI (${branch} release)";
     longDescription = ''
       Graphical user interface for controlling the GNS3 network simulator. This
@@ -42,6 +84,6 @@ in python.pkgs.buildPythonPackage rec {
     changelog = "https://github.com/GNS3/gns3-gui/releases/tag/v${version}";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ primeos ];
+    maintainers = with maintainers; [ ];
   };
 }

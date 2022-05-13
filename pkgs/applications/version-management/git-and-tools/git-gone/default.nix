@@ -1,36 +1,39 @@
-{ stdenv, fetchFromGitHub, rustPlatform, pkgconfig, makeWrapper, openssl, git, libiconv, Security, installShellFiles }:
+{ lib
+, stdenv
+, fetchFromGitea
+, rustPlatform
+, libiconv
+, Security
+, installShellFiles
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "git-gone";
-  version = "0.3.2";
+  version = "0.3.8";
 
-  src = fetchFromGitHub {
-    owner = "lunaryorn";
+  src = fetchFromGitea {
+    domain = "codeberg.org";
+    owner = "flausch";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0zc4cb1dg30np5yc4ymkr894qs2bk0r123i302md00niayk4njyd";
+    sha256 = "sha256-hKbq2rJwEZI3391RsZXsQSjjp7rSqglUckRDYAu42KE=";
   };
 
-  cargoSha256 = "1d892889ml7sqyxzmjipq5fvizb4abqhmmn450qm7yam9fn5q5wf";
+  cargoSha256 = "sha256-gBQ4V8Bwx6Di8aVnOYwx0UZZIIOFxZAXT7Tl1Yli0Fk=";
 
-  nativeBuildInputs = [ pkgconfig makeWrapper installShellFiles ];
+  nativeBuildInputs = [ installShellFiles ];
 
-  buildInputs = [ openssl ]
-    ++ stdenv.lib.optionals stdenv.isDarwin [ libiconv Security ];
+  buildInputs = lib.optionals stdenv.isDarwin [ libiconv Security ];
 
   postInstall = ''
     installManPage git-gone.1
   '';
 
-  postFixup = ''
-    wrapProgram $out/bin/git-gone --prefix PATH : "${stdenv.lib.makeBinPath [ git ]}"
-  '';
-
-  meta = with stdenv.lib; {
-    description = "Cleanup stale Git branches of pull requests";
-    homepage = "https://github.com/lunaryorn/git-gone";
+  meta = with lib; {
+    description = "Cleanup stale Git branches of merge requests";
+    homepage = "https://codeberg.org/flausch/git-gone";
+    changelog = "https://codeberg.org/flausch/git-gone/raw/tag/v${version}/CHANGELOG.md";
     license = licenses.asl20;
     maintainers = [ maintainers.marsam ];
-    platforms = platforms.unix;
   };
 }

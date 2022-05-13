@@ -8,21 +8,34 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "wasmer";
-  version = "0.17.0";
+  version = "2.1.1";
 
   src = fetchFromGitHub {
     owner = "wasmerio";
     repo = pname;
     rev = version;
-    sha256 = "05g4h0xkqd14wnmijiiwmhk6l909fjxr6a2zplrjfxk5bypdalpm";
+    sha256 = "sha256-uD+JH42AxXxLMLqBurNDfYc7tLlBlEmaLB5rbip+/D4=";
     fetchSubmodules = true;
   };
 
-  cargoSha256 = "1ssmgx9fjvkq7ycyzjanqmlm5b80akllq6qyv3mj0k5fvs659wcq";
+  cargoSha256 = "sha256-eiX5p2qWUZgoHzoHYXDsp9N6foiX3JovKO6MpoJOXFo=";
 
   nativeBuildInputs = [ cmake pkg-config ];
 
-  LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
+  # cranelift+jit works everywhere, see:
+  # https://github.com/wasmerio/wasmer/blob/master/Makefile#L22
+  buildFeatures = [ "cranelift" "jit" ];
+  cargoBuildFlags = [
+    # must target manifest and desired output bin, otherwise output is empty
+    "--manifest-path" "lib/cli/Cargo.toml"
+    "--bin" "wasmer"
+  ];
+
+  # Can't use test-jit:
+  # error: Package `wasmer-workspace v2.1.1 (/build/source)` does not have the feature `test-jit`
+  checkFeatures = [ "test-cranelift" ];
+
+  LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
 
   meta = with lib; {
     description = "The Universal WebAssembly Runtime";
@@ -34,7 +47,6 @@ rustPlatform.buildRustPackage rec {
     '';
     homepage = "https://wasmer.io/";
     license = licenses.mit;
-    maintainers = with maintainers; [ filalex77 ];
-    platforms = platforms.all;
+    maintainers = with maintainers; [ Br1ght0ne shamilton ];
   };
 }

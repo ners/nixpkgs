@@ -1,16 +1,20 @@
 { stdenv
 , lib
 , fetchurl
-, alsaLib
+, fetchpatch
+, alsa-lib
 , dbus
+, ell
 , glib
 , json_c
 , libical
-, pkgconfig
+, docutils
+, pkg-config
 , python3
 , readline
 , systemd
 , udev
+, withExperimental ? false
 }: let
   pythonPath = with python3.pkgs; [
     dbus-python
@@ -19,16 +23,17 @@
   ];
 in stdenv.mkDerivation rec {
   pname = "bluez";
-  version = "5.54";
+  version = "5.64";
 
   src = fetchurl {
     url = "mirror://kernel/linux/bluetooth/${pname}-${version}.tar.xz";
-    sha256 = "1p2ncvjz6alr9n3l5wvq2arqgc7xjs6dqyar1l9jp0z8cfgapkb8";
+    sha256 = "sha256-rkN+ZbazBwwZi8WwEJ/pzeueqjhzgOIHL53mX+ih3jQ=";
   };
 
   buildInputs = [
-    alsaLib
+    alsa-lib
     dbus
+    ell
     glib
     json_c
     libical
@@ -38,16 +43,33 @@ in stdenv.mkDerivation rec {
   ];
 
   nativeBuildInputs = [
-    pkgconfig
+    docutils
+    pkg-config
     python3.pkgs.wrapPython
   ];
 
   outputs = [ "out" "dev" ] ++ lib.optional doCheck "test";
 
+  patches = [
+    # https://github.com/bluez/bluez/commit/0905a06410d4a5189f0be81e25eb3c3e8a2199c5
+    # which fixes https://github.com/bluez/bluez/issues/329
+    # and is already merged upstream and not yet in a release.
+    (fetchpatch {
+      name = "StateDirectory_and_ConfigurationDirectory.patch";
+      url = "https://github.com/bluez/bluez/commit/0905a06410d4a5189f0be81e25eb3c3e8a2199c5.patch";
+      sha256 = "sha256-MI6yPTiDLHsSTjLvNqtWnuy2xUMYpSat1WhMbeoedSM=";
+    })
+  ];
+
   postPatch = ''
     substituteInPlace tools/hid2hci.rules \
       --replace /sbin/udevadm ${systemd}/bin/udevadm \
       --replace "hid2hci " "$out/lib/udev/hid2hci "
+    # Disable some tests:
+    # - test-mesh-crypto depends on the following kernel settings:
+    #   CONFIG_CRYPTO_[USER|USER_API|USER_API_AEAD|USER_API_HASH|AES|CCM|AEAD|CMAC]
+    if [[ ! -f unit/test-mesh-crypto.c ]]; then echo "unit/test-mesh-crypto.c no longer exists"; false; fi
+    echo 'int main() { return 77; }' > unit/test-mesh-crypto.c
   '';
 
   configureFlags = [
@@ -55,6 +77,7 @@ in stdenv.mkDerivation rec {
     "--enable-library"
     "--enable-cups"
     "--enable-pie"
+    "--enable-external-ell"
     "--with-dbusconfdir=${placeholder "out"}/share"
     "--with-dbussystembusdir=${placeholder "out"}/share/dbus-1/system-services"
     "--with-dbussessionbusdir=${placeholder "out"}/share/dbus-1/services"
@@ -67,8 +90,15 @@ in stdenv.mkDerivation rec {
     "--enable-nfc"
     "--enable-sap"
     "--enable-sixaxis"
-    "--enable-wiimote"
-  ];
+    "--enable-btpclient"
+    "--enable-hid2hci"
+    "--enable-logger"
+
+    # To provide ciptool, sdptool, and rfcomm (unmaintained)
+    # superseded by new D-Bus APIs
+    "--enable-deprecated"
+  ] ++ lib.optional withExperimental "--enable-experimental";
+
 
   # Work around `make install' trying to create /var/lib/bluetooth.
   installFlags = [ "statedir=$(TMPDIR)/var/lib/bluetooth" ];
@@ -112,11 +142,10 @@ in stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Bluetooth support for Linux";
     homepage = "http://www.bluez.org/";
     license = with licenses; [ gpl2 lgpl21 ];
     platforms = platforms.linux;
-    repositories.git = "https://git.kernel.org/pub/scm/bluetooth/bluez.git";
   };
 }

@@ -1,47 +1,61 @@
 { lib
+, stdenv
 , bokeh
 , buildPythonPackage
-, fetchFromGitHub
-, fsspec
-, pytestCheckHook
-, pythonOlder
 , cloudpickle
+, distributed
+, fetchFromGitHub
+, fetchpatch
+, fsspec
+, jinja2
 , numpy
-, toolz
-, dill
+, packaging
 , pandas
 , partd
+, pytest-rerunfailures
+, pytest-xdist
+, pytestCheckHook
+, pythonOlder
+, pyyaml
+, toolz
 }:
 
 buildPythonPackage rec {
   pname = "dask";
-  version = "2.14.0";
+  version = "2022.02.1";
+  format = "setuptools";
 
-  disabled = pythonOlder "3.5";
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "dask";
     repo = pname;
     rev = version;
-    sha256 = "0kj46pwzvdw8ii1h45y48wxvjid89yp4cfak2h4b8z8xic73fqgj";
+    hash = "sha256-A8ktvfpow/QKAEEt9SUnkTqYFJCrV1mgnuDIP3gdyrE=";
   };
+
+  propagatedBuildInputs = [
+    cloudpickle
+    fsspec
+    packaging
+    partd
+    pyyaml
+    toolz
+    pandas
+    jinja2
+    bokeh
+    numpy
+  ];
+
+  doCheck = true;
 
   checkInputs = [
     pytestCheckHook
+    pytest-rerunfailures
+    pytest-xdist
   ];
 
   dontUseSetuptoolsCheck = true;
-
-  propagatedBuildInputs = [
-    bokeh
-    cloudpickle
-    dill
-    fsspec
-    numpy
-    pandas
-    partd
-    toolz
-  ];
 
   postPatch = ''
     # versioneer hack to set version of github package
@@ -52,15 +66,47 @@ buildPythonPackage rec {
       --replace "cmdclass=versioneer.get_cmdclass()," ""
   '';
 
-  disabledTests = [
-    "test_argwhere_str"
-    "test_count_nonzero_str"
+  pytestFlagsArray = [
+    # rerun failed tests up to three times
+    "--reruns 3"
+    # don't run tests that require network access
+    "-m 'not network'"
   ];
 
-  meta = {
+  disabledTests = lib.optionals stdenv.isDarwin [
+    # this test requires features of python3Packages.psutil that are
+    # blocked in sandboxed-builds
+    "test_auto_blocksize_csv"
+  ] ++ [
+    # A deprecation warning from newer sqlalchemy versions makes these tests
+    # to fail https://github.com/dask/dask/issues/7406
+    "test_sql"
+    # Test interrupt fails intermittently https://github.com/dask/dask/issues/2192
+    "test_interrupt"
+  ];
+
+  __darwinAllowLocalNetworking = true;
+
+  pythonImportsCheck = [
+    "dask"
+    "dask.array"
+    "dask.bag"
+    "dask.bytes"
+    "dask.dataframe"
+    "dask.dataframe.io"
+    "dask.dataframe.tseries"
+    "dask.diagnostics"
+  ];
+
+  passthru.extras-require = {
+    complete = [ distributed ];
+  };
+
+  meta = with lib; {
     description = "Minimal task scheduling abstraction";
-    homepage = "https://github.com/ContinuumIO/dask/";
-    license = lib.licenses.bsd3;
-    maintainers = with lib.maintainers; [ fridh ];
+    homepage = "https://dask.org/";
+    changelog = "https://docs.dask.org/en/latest/changelog.html";
+    license = licenses.bsd3;
+    maintainers = with maintainers; [ fridh ];
   };
 }

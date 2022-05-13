@@ -1,24 +1,46 @@
-{ lib, buildPythonPackage, fetchFromGitHub, pythonOlder, pyusb, pyserial }:
+{ lib
+, buildPythonPackage
+, fetchFromGitHub
+, pyserial
+, pythonOlder
+, pyusb
+}:
 
 buildPythonPackage rec {
   pname = "pyftdi";
-  version = "0.49.0";
-  disabled = pythonOlder "3.5";
+  version = "0.54.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "eblot";
     repo = pname;
     rev = "v${version}";
-    sha256 = "063kwvgw7g4nn09pyqwqy72vnhzw0aajg23bi32vr0k49g8fx27s";
+    hash = "sha256-vL8jSgTtDvaHuCvaCYmFixILQFasTl82yINL5yRtOwU=";
   };
 
-  propagatedBuildInputs = [ pyusb pyserial ];
+  propagatedBuildInputs = [
+    pyserial
+    pyusb
+  ];
 
-  pythonImportsCheck = [ "pyftdi" ];
+  # Tests require access to the serial port
+  doCheck = false;
 
-  meta = {
+  pythonImportsCheck = [
+    "pyftdi"
+  ];
+
+  meta = with lib; {
     description = "User-space driver for modern FTDI devices";
+    longDescription = ''
+      PyFtdi aims at providing a user-space driver for popular FTDI devices.
+      This includes UART, GPIO and multi-serial protocols (SPI, I2C, JTAG)
+      bridges.
+    '';
     homepage = "https://github.com/eblot/pyftdi";
-    license = lib.licenses.bsd3;
+    license = licenses.bsd3;
+    maintainers = with maintainers; [ fab ];
   };
 }

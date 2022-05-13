@@ -1,10 +1,11 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, options, pkgs, ... }:
 
 with lib;
 
 let
 
   cfg = config.services.picom;
+  opt = options.services.picom;
 
   pairOf = x: with types;
     addCheck (listOf x) (y: length y == 2)
@@ -57,7 +58,15 @@ in {
       type = types.bool;
       default = false;
       description = ''
-        Whether of not to enable Picom as the X.org composite manager.
+        Whether or not to enable Picom as the X.org composite manager.
+      '';
+    };
+
+    experimentalBackends = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Whether to use the unstable new reimplementation of the backends.
       '';
     };
 
@@ -170,7 +179,16 @@ in {
 
     wintypes = mkOption {
       type = types.attrs;
-      default = { popup_menu = { opacity = cfg.menuOpacity; }; dropdown_menu = { opacity = cfg.menuOpacity; }; };
+      default = {
+        popup_menu = { opacity = cfg.menuOpacity; };
+        dropdown_menu = { opacity = cfg.menuOpacity; };
+      };
+      defaultText = literalExpression ''
+        {
+          popup_menu = { opacity = config.${opt.menuOpacity}; };
+          dropdown_menu = { opacity = config.${opt.menuOpacity}; };
+        }
+      '';
       example = {};
       description = ''
         Rules for specific window types.
@@ -246,7 +264,7 @@ in {
     in mkOption {
       type = topLevel;
       default = { };
-      example = literalExample ''
+      example = literalExpression ''
         blur =
           { method = "gaussian";
             size = 10;
@@ -302,7 +320,8 @@ in {
       };
 
       serviceConfig = {
-        ExecStart = "${pkgs.picom}/bin/picom --config ${configFile}";
+        ExecStart = "${pkgs.picom}/bin/picom --config ${configFile}"
+          + (optionalString cfg.experimentalBackends " --experimental-backends");
         RestartSec = 3;
         Restart = "always";
       };

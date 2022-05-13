@@ -1,31 +1,36 @@
-{ callPackage }:
-
+{ callPackage, fetchurl, dart }:
 let
   mkFlutter = opts: callPackage (import ./flutter.nix opts) { };
   getPatches = dir:
     let files = builtins.attrNames (builtins.readDir dir);
     in map (f: dir + ("/" + f)) files;
+  version = "2.10.1";
+  channel = "stable";
+  filename = "flutter_linux_${version}-${channel}.tar.xz";
+
+  # Decouples flutter derivation from dart derivation,
+  # use specific dart version to not need to bump dart derivation when bumping flutter.
+  dartVersion = "2.16.1";
+  dartSourceBase = "https://storage.googleapis.com/dart-archive/channels";
+  dartForFlutter = dart.override {
+    version = dartVersion;
+    sources = {
+      "${dartVersion}-x86_64-linux" = fetchurl {
+        url = "${dartSourceBase}/stable/release/${dartVersion}/sdk/dartsdk-linux-x64-release.zip";
+        sha256 = "sha256-PMY6DCFQC8XrlnFzOEPcwgBAs5/cAvNd78969Z+I1Fk=";
+      };
+    };
+  };
 in {
-  stable = mkFlutter {
+  mkFlutter = mkFlutter;
+  stable = mkFlutter rec {
+    inherit version;
+    dart = dartForFlutter;
     pname = "flutter";
-    channel = "stable";
-    version = "1.12.13+hotfix.9";
-    sha256Hash = "1ql3zvmmk5zk47y30lajxaam04q6vr373dayq15jv4vpc0fzif1y";
-    patches = getPatches ./patches/stable;
-  };
-  beta = mkFlutter {
-    pname = "flutter-beta";
-    channel = "beta";
-    version = "1.15.17";
-    sha256Hash = "0iil6y6y477dhjgzx54ab5m9nj0jg4xl8x4zzd9iwh8m756r7qsd";
-    patches = getPatches ./patches/beta;
-  };
-  dev = mkFlutter rec {
-    pname = "flutter-dev";
-    channel = "dev";
-    version = "1.17.0-dev.5.0";
-    filename = "flutter_linux_${version}-${channel}.tar.xz";
-    sha256Hash = "0ks2jf2bd42y2jsc91p33r57q7j3m94d8ihkmlxzwi53x1mwp0pk";
-    patches = getPatches ./patches/beta;
+    src = fetchurl {
+      url = "https://storage.googleapis.com/flutter_infra_release/releases/${channel}/linux/${filename}";
+      sha256 = "sha256-rSfwcglDV2rvJl10j7FByAWmghd2FYxrlkgYnvRO54Y=";
+    };
+    patches = getPatches ./patches;
   };
 }

@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, fetchpatch, cmake, pkgconfig, ilmbase, libtiff, openexr }:
+{ lib, stdenv, fetchFromGitHub, fetchpatch, cmake, pkg-config, ilmbase, libtiff, openexr }:
 
 stdenv.mkDerivation rec {
   pname = "ctl";
@@ -19,10 +19,20 @@ stdenv.mkDerivation rec {
     })
   ];
 
-  nativeBuildInputs = [ cmake pkgconfig ];
+  postPatch = ''
+    # Fix include guard name
+    substituteInPlace lib/dpx/dpx_raw.hh \
+        --replace CRL_DPX_RAW_INTERNAL_INCLUDE CTL_DPX_RAW_INTERNAL_INCLUDE
+
+    # Fix undefined symbols (link with Imath)
+    substituteInPlace lib/IlmCtlMath/CMakeLists.txt \
+        --replace "( IlmCtlMath IlmCtl )" "( IlmCtlMath IlmCtl Imath)"
+  '';
+
+  nativeBuildInputs = [ cmake pkg-config ];
   buildInputs = [ libtiff ilmbase openexr ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Color Transformation Language";
     homepage = "https://github.com/ampas/CTL";
     license = "A.M.P.A.S"; # BSD-derivative, free but GPL incompatible

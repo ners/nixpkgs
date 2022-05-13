@@ -1,108 +1,78 @@
-{ stdenv, fetchurl, fetchpatch, zlib, openssl, libedit, pkgconfig, pam, autoreconfHook
-, etcDir ? null
-, hpnSupport ? false
-, withKerberos ? true
-, withGssapiPatches ? false
-, kerberos
-, libfido2
-, withFIDO ? stdenv.hostPlatform.isUnix
-, linkOpenssl? true
-}:
-
+{ callPackage, lib, fetchurl, fetchpatch, fetchFromGitHub, autoreconfHook }:
 let
+  common = opts: callPackage (import ./common.nix opts) { };
+in
+{
 
-  # **please** update this patch when you update to a new openssh release.
-  gssapiPatch = fetchpatch {
-    name = "openssh-gssapi.patch";
-    url = "https://salsa.debian.org/ssh-team/openssh/raw/debian/1%258.2p1-1/debian/patches/gssapi.patch";
-    sha256 = "081gryqkfr5zr4f5m4v0piq1sxz06sb38z5lqxccgpivql7pa8d8";
+  openssh = common rec {
+    pname = "openssh";
+    version = "9.0p1";
+
+    src = fetchurl {
+      url = "mirror://openbsd/OpenSSH/portable/openssh-${version}.tar.gz";
+      sha256 = "12m2f9czvgmi7akp7xah6y7mrrpi280a3ksk47iwr7hy2q1475q3";
+    };
+
+    extraPatches = [ ./ssh-keysign-8.5.patch ];
+    extraMeta.maintainers = with lib.maintainers; [ das_j ];
   };
 
-in
-with stdenv.lib;
-stdenv.mkDerivation rec {
-  pname = "openssh";
-  version = if hpnSupport then "8.1p1" else "8.2p1";
+  openssh_hpn = common rec {
+    pname = "openssh-with-hpn";
+    version = "9.0p1";
+    extraDesc = " with high performance networking patches";
 
-  src = if hpnSupport then
-      fetchurl {
-        url = "https://github.com/rapier1/openssh-portable/archive/hpn-KitchenSink-8_1_P1.tar.gz";
-        sha256 = "1xiv28df9c15h44fv1i93fq8rvkyapjj9vj985ndnw3xk1nvqjyd";
-      }
-    else
-      fetchurl {
-        url = "mirror://openbsd/OpenSSH/portable/${pname}-${version}.tar.gz";
-        sha256 = "0wg6ckzvvklbzznijxkk28fb8dnwyjd0w30ra0afwv6gwr8m34j3";
-      };
+    src = fetchurl {
+      url = "mirror://openbsd/OpenSSH/portable/openssh-${version}.tar.gz";
+      sha256 = "12m2f9czvgmi7akp7xah6y7mrrpi280a3ksk47iwr7hy2q1475q3";
+    };
 
-  patches =
-    [
-      ./locale_archive.patch
+    extraPatches = [
+      ./ssh-keysign-8.5.patch
 
-      # See discussion in https://github.com/NixOS/nixpkgs/pull/16966
-      ./dont_create_privsep_path.patch
+      # HPN Patch from FreeBSD ports
+      (fetchpatch {
+        name = "ssh-hpn.patch";
+        url = "https://raw.githubusercontent.com/freebsd/freebsd-ports/ae66cffc19f357cbd51d5841c9b110a9ffd63e32/security/openssh-portable/files/extra-patch-hpn";
+        stripLen = 1;
+        sha256 = "sha256-p3CmMqTgrqFZUo4ZuqaPLczAhjmPufkCvptVW5dI+MI=";
+      })
+    ];
 
-      ./ssh-keysign.patch
-    ]
-    ++ optional withGssapiPatches (assert withKerberos; gssapiPatch);
+    extraNativeBuildInputs = [ autoreconfHook ];
 
-  postPatch =
-    # On Hydra this makes installation fail (sometimes?),
-    # and nix store doesn't allow such fancy permission bits anyway.
-    ''
-      substituteInPlace Makefile.in --replace '$(INSTALL) -m 4711' '$(INSTALL) -m 0711'
-    '';
+    extraConfigureFlags = [ "--with-hpn" ];
+    extraMeta.maintainers = with lib.maintainers; [ abbe ];
+  };
 
-  nativeBuildInputs = [ pkgconfig ] ++ optional (hpnSupport || withGssapiPatches) autoreconfHook;
-  buildInputs = [ zlib openssl libedit pam ]
-    ++ optional withFIDO libfido2
-    ++ optional withKerberos kerberos;
+  openssh_gssapi = common rec {
+    pname = "openssh-with-gssapi";
+    version = "8.4p1";
+    extraDesc = " with GSSAPI support";
 
-  preConfigure = ''
-    # Setting LD causes `configure' and `make' to disagree about which linker
-    # to use: `configure' wants `gcc', but `make' wants `ld'.
-    unset LD
-  '';
+    src = fetchurl {
+      url = "mirror://openbsd/OpenSSH/portable/openssh-${version}.tar.gz";
+      sha256 = "091b3pxdlj47scxx6kkf4agkx8c8sdacdxx8m1dw1cby80pd40as";
+    };
 
-  # I set --disable-strip because later we strip anyway. And it fails to strip
-  # properly when cross building.
-  configureFlags = [
-    "--sbindir=\${out}/bin"
-    "--localstatedir=/var"
-    "--with-pid-dir=/run"
-    "--with-mantype=man"
-    "--with-libedit=yes"
-    "--disable-strip"
-    (if pam != null then "--with-pam" else "--without-pam")
-  ] ++ optional (etcDir != null) "--sysconfdir=${etcDir}"
-    ++ optional withFIDO "--with-security-key-builtin=yes"
-    ++ optional withKerberos (assert kerberos != null; "--with-kerberos5=${kerberos}")
-    ++ optional stdenv.isDarwin "--disable-libutil"
-    ++ optional (!linkOpenssl) "--without-openssl";
+    extraPatches = [
+      ./ssh-keysign-8.4.patch
 
-  buildFlags = [ "SSH_KEYSIGN=ssh-keysign" ];
+      # See https://github.com/openssh/openssh-portable/pull/206
+      ./ssh-copy-id-fix-eof.patch
 
-  enableParallelBuilding = true;
+      (fetchpatch {
+        name = "openssh-gssapi.patch";
+        url = "https://salsa.debian.org/ssh-team/openssh/raw/debian/1%25${version}-2/debian/patches/gssapi.patch";
+        sha256 = "1z1ckzimlkm1dmr9f5fqjnjg28gsqcwx6xka0klak857548d2lp2";
+      })
+    ];
 
-  hardeningEnable = [ "pie" ];
+    extraNativeBuildInputs = [ autoreconfHook ];
 
-  postInstall = ''
-    # Install ssh-copy-id, it's very useful.
-    cp contrib/ssh-copy-id $out/bin/
-    chmod +x $out/bin/ssh-copy-id
-    cp contrib/ssh-copy-id.1 $out/share/man/man1/
-  '';
-
-  installTargets = [ "install-nokeys" ];
-  installFlags = [
-    "sysconfdir=\${out}/etc/ssh"
-  ];
-
-  meta = {
-    homepage = "http://www.openssh.com/";
-    description = "An implementation of the SSH protocol";
-    license = stdenv.lib.licenses.bsd2;
-    platforms = platforms.unix ++ platforms.windows;
-    maintainers = with maintainers; [ eelco aneeshusa ];
+    extraMeta.knownVulnerabilities = [
+      "CVE-2021-28041"
+      "CVE-2021-41617"
+    ];
   };
 }

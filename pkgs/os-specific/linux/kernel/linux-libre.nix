@@ -1,8 +1,8 @@
 { stdenv, lib, fetchsvn, linux
 , scripts ? fetchsvn {
     url = "https://www.fsfla.org/svn/fsfla/software/linux-libre/releases/branches/";
-    rev = "17445";
-    sha256 = "0d2gd2w4pbb728a7mw9dnq3aicwpjzg8zahg80ismvc9l1sym50a";
+    rev = "18688";
+    sha256 = "15f83zcwxk28b3a4am8avi0xwd7zr79n00150k6xdf3g8haz7yaj";
   }
 , ...
 }:
@@ -14,9 +14,15 @@ let
   minor = lib.versions.minor linux.modDirVersion;
   patch = lib.versions.patch linux.modDirVersion;
 
+  # See http://linux-libre.fsfla.org/pub/linux-libre/releases
+  versionPrefix = if linux.kernelOlder "5.14" then
+    "gnu1"
+  else
+    "gnu";
 in linux.override {
   argsOverride = {
-    modDirVersion = "${linux.modDirVersion}-gnu";
+    modDirVersion = "${linux.modDirVersion}-${versionPrefix}";
+    isLibre = true;
 
     src = stdenv.mkDerivation {
       name = "${linux.name}-libre-src";
@@ -36,6 +42,6 @@ in linux.override {
 
     passthru.updateScript = ./update-libre.sh;
 
-    maintainers = [ lib.maintainers.qyliss ];
+    maintainers = with lib.maintainers; [ qyliss ivar ];
   };
 }

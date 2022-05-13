@@ -1,17 +1,41 @@
-{ stable, branch, version, sha256Hash, mkOverride, commonOverrides }:
+{ stable
+, branch
+, version
+, sha256Hash
+, mkOverride
+, commonOverrides
+}:
 
-{ lib, stdenv, python3, fetchFromGitHub }:
+{ lib
+, python3
+, fetchFromGitHub
+, packageOverrides ? self: super: {}
+}:
 
 let
   defaultOverrides = commonOverrides ++ [
-    (mkOverride "jsonschema" "2.6.0"
-      "00kf3zmpp9ya4sydffpifn0j0mzm342a2vzh82p6r0vh10cg7xbg")
+    (self: super: {
+      jsonschema = super.jsonschema.overridePythonAttrs (oldAttrs: rec {
+        version = "3.2.0";
+
+        src = super.fetchPypi {
+          inherit (oldAttrs) pname;
+          inherit version;
+          sha256 = "sha256-yKhbKNN3zHc35G4tnytPRO48Dh3qxr9G3e/HGH0weXo=";
+        };
+
+        SETUPTOOLS_SCM_PRETEND_VERSION = version;
+
+        doCheck = false;
+      });
+
+    })
   ];
 
   python = python3.override {
-    packageOverrides = lib.foldr lib.composeExtensions (self: super: { }) defaultOverrides;
+    packageOverrides = lib.foldr lib.composeExtensions (self: super: { }) ([ packageOverrides ] ++ defaultOverrides);
   };
-in python.pkgs.buildPythonPackage {
+in python.pkgs.buildPythonApplication {
   pname = "gns3-server";
   inherit version;
 
@@ -23,14 +47,34 @@ in python.pkgs.buildPythonPackage {
   };
 
   postPatch = ''
-    # yarl 1.4+ only requires Python 3.6+
-    sed -iE "s/yarl==1.3.0//" requirements.txt
+    substituteInPlace requirements.txt \
+      --replace "aiohttp==" "aiohttp>=" \
+      --replace "aiofiles==" "aiofiles>=" \
+      --replace "Jinja2==" "Jinja2>=" \
+      --replace "sentry-sdk==" "sentry-sdk>=" \
+      --replace "async-timeout==" "async-timeout>=" \
+      --replace "psutil==" "psutil>=" \
+      --replace "distro==" "distro>=" \
+      --replace "py-cpuinfo==" "py-cpuinfo>=" \
+      --replace "setuptools==" "setuptools>="
   '';
 
   propagatedBuildInputs = with python.pkgs; [
-    aiohttp-cors yarl aiohttp multidict setuptools
-    jinja2 psutil zipstream raven jsonschema distro async_generator aiofiles
-    prompt_toolkit py-cpuinfo
+    aiofiles
+    aiohttp
+    aiohttp-cors
+    async_generator
+    distro
+    jinja2
+    jsonschema
+    multidict
+    prompt-toolkit
+    psutil
+    py-cpuinfo
+    sentry-sdk
+    setuptools
+    yarl
+    zipstream
   ];
 
   # Requires network access
@@ -40,7 +84,7 @@ in python.pkgs.buildPythonPackage {
     rm $out/bin/gns3loopback # For Windows only
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Graphical Network Simulator 3 server (${branch} release)";
     longDescription = ''
       The GNS3 server manages emulators such as Dynamips, VirtualBox or
@@ -51,6 +95,6 @@ in python.pkgs.buildPythonPackage {
     changelog = "https://github.com/GNS3/gns3-server/releases/tag/v${version}";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ primeos ];
+    maintainers = with maintainers; [ ];
   };
 }

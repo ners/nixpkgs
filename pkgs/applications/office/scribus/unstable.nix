@@ -2,8 +2,8 @@
 , cairo
 , cmake
 , cups
-, fetchpatch
 , fetchurl
+, fetchpatch
 , fontconfig
 , freetype
 , harfbuzzFull
@@ -14,19 +14,19 @@
 , libxml2
 , mkDerivation
 , pixman
-, pkgconfig
+, pkg-config
 , podofo
 , poppler
 , poppler_data
-, python2
+, python3
 , qtbase
 , qtimageformats
 , qttools
-, stdenv
+, lib
 }:
 
 let
-  pythonEnv = python2.withPackages (
+  pythonEnv = python3.withPackages (
     ps: [
       ps.pillow
       ps.tkinter
@@ -36,55 +36,64 @@ in
 mkDerivation rec {
   pname = "scribus";
 
-  version = "1.5.5";
+  version = "1.5.7";
 
   src = fetchurl {
     url = "mirror://sourceforge/${pname}/${pname}-devel/${pname}-${version}.tar.xz";
-    sha256 = "eQiyGmzoQyafWM7fX495GJMlfmIBzOX73ccNrKL+P3E=";
+    sha256 = "sha256-MYMWss/Hp2GR0+DT+MImUUfa6gVwFiAo4kPCktgm+M4=";
   };
 
   patches = [
-    # Poppler patches from
-    # https://github.com/scribusproject/scribus/commits/master/scribus/plugins/import/pdf
-
-    # fix build with Poppler 0.82
+    # For harfbuzz >= 2.9.0
     (fetchpatch {
-      url = "https://github.com/scribusproject/scribus/commit/6db15ec1af791377b28981601f8c296006de3c6f.patch";
-      sha256 = "1y6g3avmsmiyaj8xry1syaz8sfznsavh6l2rp13pj2bwsxfcf939";
+      url = "https://github.com/scribusproject/scribus/commit/1b546978bc4ea0b2a73fbe4d7cf947887e865162.patch";
+      sha256 = "sha256-noRCaN63ZYFfXmAluEYXdFPNOk3s5W3KBAsLU1Syxv4=";
     })
-    # fix build with Poppler 0.83
+    # For harfbuzz >= 3.0
     (fetchpatch {
-      url = "https://github.com/scribusproject/scribus/commit/b51c2bab4d57d685f96d427d6816bdd4ecfb4674.patch";
-      sha256 = "031yy9ylzksczfnpcc4glfccz025sn47zg6fqqzjnqqrc16bgdlx";
+      url = "https://github.com/scribusproject/scribus/commit/68ec41169eaceea4a6e1d6f359762a191c7e61d5.patch";
+      sha256 = "sha256-xhp65qVvaof0md1jb3XHZw7uFX1RtNxPfUOaVnvZV1Y=";
     })
-    # fix build with Poppler 0.84
-    # TODO: Remove patches with scribus version > 1.5.5 as it should be fixed upstream in next version
+    # For Poppler 22.02
     (fetchpatch {
-      url = "https://github.com/scribusproject/scribus/commit/3742559924136c2471ab15081c5b600dd5feaeb0.patch";
-      sha256 = "1d72h7jbajy9w83bnxmhn1ca947hpfxnfbmq30g5ljlj824c7y9y";
-    })
-    # Formating changes needed for the Poppler 0.86 patch to apply
-    (fetchpatch {
-      url = "https://github.com/scribusproject/scribus/commit/58613b5ce44335f202a55ab15ed303d97fe274cb.patch";
-      sha256 = "qwmVAZVYCijLNMVGwnOLJE8223vcRwPWfEvNKiDjw5o=";
+      url = "https://github.com/scribusproject/scribus/commit/85c0dff3422fa3c26fbc2e8d8561f597ec24bd92.patch";
+      sha256 = "YR0ii09EVU8Qazz6b8KAIWsUMTwPIwO8JuQPymAWKdw=";
     })
     (fetchpatch {
-      url = "https://github.com/scribusproject/scribus/commit/24aba508aac3f672f5f8cd629744a3b71e58ec37.patch";
-      sha256 = "sha256-OY+EIiGBTg2aIAmZOnkI8DPZVZYqFZAKnD7ychge1Dw=";
-      includes = [ "scribus/plugins/import/pdf/*" ];
+      url = "https://github.com/scribusproject/scribus/commit/f75c1613db67f4067643d0218a2db3235e42ec9f.patch";
+      sha256 = "vJU8HsKHE3oXlhcXQk9uCYINPYVPF5IGmrWYFQ6Py5c=";
     })
-    # fix build with Poppler 0.86
+    # For Poppler 22.03
     (fetchpatch {
-      url = "https://github.com/scribusproject/scribus/commit/67f8771aaff2f55d61b8246f420e762f4b526944.patch";
-      sha256 = "51z+BYKhbH8a9dFph8X60NGpiogSb+5tOhW2d+m/X9M=";
+      url = "https://github.com/scribusproject/scribus/commit/553d1fd5f76ffb3743583b88c78a7232b076a965.patch";
+      sha256 = "56JrEG3eCzyALTH04yjzurKRj2PocpjO6b4PusMRxjY=";
+    })
+    (fetchpatch {
+      url = "https://github.com/scribusproject/scribus/commit/1f82e38be0782b065910f5fb4cece23f690349ae.patch";
+      sha256 = "qektUfel5KeA327D3THyqi8dznP1SQQFToUC5Kd0+W4=";
+    })
+    (fetchpatch {
+      url = "https://github.com/scribusproject/scribus/commit/f19410ac3b27e33dd62105746784e61e85b90a1d.patch";
+      sha256 = "JHdgntYcioYatPeqpmym3c9dORahj0CinGOzbGtA4ds=";
+    })
+    (fetchpatch {
+      url = "https://github.com/scribusproject/scribus/commit/e013e8126d2100e8e56dea5b836ad43275429389.patch";
+      sha256 = "+siPNtJq9Is9V2PgADeQJB+b4lkl5g8uk6zKBu10Jqw=";
+    })
+    (fetchpatch {
+      url = "https://github.com/scribusproject/scribus/commit/48263954a7dee0be815b00f417ae365ab26cdd85.patch";
+      sha256 = "1WE9kALFw79bQH88NUafXaZ1Y/vJEKTIWxlk5c+opsQ=";
+    })
+    # For Poppler 22.04
+    (fetchpatch {
+      url = "https://github.com/scribusproject/scribus/commit/f2237b8f0b5cf7690e864a22ef7a63a6d769fa36.patch";
+      sha256 = "FXpLoX/a2Jy3GcfzrUUyVUfEAp5wAy2UfzfVA5lhwJw=";
     })
   ];
 
-  enableParallelBuilding = true;
-
   nativeBuildInputs = [
     cmake
-    pkgconfig
+    pkg-config
   ];
 
   buildInputs = [
@@ -109,7 +118,12 @@ mkDerivation rec {
     qttools
   ];
 
-  meta = with stdenv.lib; {
+  cmakeFlags = [
+    # poppler uses std::optional
+    "-DWANT_CPP17=ON"
+  ];
+
+  meta = with lib; {
     maintainers = with maintainers; [
       erictapen
       kiwi
@@ -117,10 +131,11 @@ mkDerivation rec {
     platforms = platforms.linux;
     description = "Desktop Publishing (DTP) and Layout program for Linux";
     homepage = "https://www.scribus.net";
-    # There are a lot of licenses... https://github.com/scribusproject/scribus/blob/20508d69ca4fc7030477db8dee79fd1e012b52d2/COPYING#L15-L19
+    # There are a lot of licenses...
+    # https://github.com/scribusproject/scribus/blob/20508d69ca4fc7030477db8dee79fd1e012b52d2/COPYING#L15-L19
     license = with licenses; [
       bsd3
-      gpl2
+      gpl2Plus
       mit
       publicDomain
     ];

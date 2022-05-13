@@ -1,28 +1,49 @@
-{ lib, pkgconfig, curl, openssl, zlib, fetchFromGitHub, rustPlatform }:
+{ stdenv, lib, runCommand, patchelf, makeWrapper, pkg-config, curl, runtimeShell
+, openssl, zlib, fetchFromGitHub, rustPlatform, libiconv }:
 
 rustPlatform.buildRustPackage rec {
   pname = "elan";
-  version = "0.10.0";
+  version = "1.4.1";
 
   src = fetchFromGitHub {
-    owner = "kha";
+    owner = "leanprover";
     repo = "elan";
     rev = "v${version}";
-    sha256 = "0aw538shvpfbk481y0gw3z97nsazdnk8qh8fwsb6ji62p2r51v6f";
+    sha256 = "sha256-jHECNSXSATLuNHNSVwi7mBTI8l6+cLPDISc5T/4yHDg=";
   };
 
-  cargoSha256 = "0zg3q31z516049v9fhli4yxldx9fg31k2qfx4ag8rmyvpgy9xh6c";
+  cargoSha256 = "sha256-/XwlTmUboDbB6RTanhKyO6o2GBUhxpH/NQjeNsKpse0=";
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config makeWrapper ];
 
-  buildInputs = [ curl zlib openssl ];
+  OPENSSL_NO_VENDOR = 1;
+  buildInputs = [ curl zlib openssl ]
+    ++ lib.optional stdenv.isDarwin libiconv;
 
-  cargoBuildFlags = [ "--features no-self-update" ];
+  buildFeatures = [ "no-self-update" ];
+
+  patches = lib.optionals stdenv.isLinux [
+    # Run patchelf on the downloaded binaries.
+    # This is necessary because Lean 4 is now dynamically linked.
+    (runCommand "0001-dynamically-patchelf-binaries.patch" {
+        CC = stdenv.cc;
+        cc = "${stdenv.cc}/bin/cc";
+        patchelf = patchelf;
+        shell = runtimeShell;
+      } ''
+     export dynamicLinker=$(cat $CC/nix-support/dynamic-linker)
+     substitute ${./0001-dynamically-patchelf-binaries.patch} $out \
+       --subst-var patchelf \
+       --subst-var dynamicLinker \
+       --subst-var cc \
+       --subst-var shell
+    '')
+  ];
 
   postInstall = ''
     pushd $out/bin
     mv elan-init elan
-    for link in lean leanpkg leanchecker leanc leanmake; do
+    for link in lean leanpkg leanchecker leanc leanmake lake; do
       ln -s elan $link
     done
     popd
@@ -37,7 +58,7 @@ rustPlatform.buildRustPackage rec {
 
   meta = with lib; {
     description = "Small tool to manage your installations of the Lean theorem prover";
-    homepage = "https://github.com/Kha/elan";
+    homepage = "https://github.com/leanprover/elan";
     license = with licenses; [ asl20 /* or */ mit ];
     maintainers = with maintainers; [ gebner ];
   };

@@ -1,5 +1,6 @@
-{ stdenv, lib, rustPlatform, fetchgit, runCommand, symlinkJoin
-, pkgconfig, minijail, dtc, libusb1, libcap, linux
+{ stdenv, lib, rustPlatform, fetchgit
+, pkg-config, wayland-scanner, libcap, minijail, wayland, wayland-protocols
+, linux
 }:
 
 let
@@ -11,55 +12,26 @@ let
     else if isx86_64 then "x86_64"
     else throw "no seccomp policy files available for host platform";
 
-  crosvmSrc = fetchgit {
-    inherit (upstreamInfo.components."chromiumos/platform/crosvm")
-      url rev sha256 fetchSubmodules;
-  };
-
-  adhdSrc = fetchgit {
-    inherit (upstreamInfo.components."chromiumos/third_party/adhd")
-      url rev sha256 fetchSubmodules;
-  };
-
 in
 
   rustPlatform.buildRustPackage rec {
     pname = "crosvm";
     inherit (upstreamInfo) version;
 
-    unpackPhase = ''
-      runHook preUnpack
-
-      mkdir -p chromiumos/platform chromiumos/third_party
-
-      pushd chromiumos/platform
-      unpackFile ${crosvmSrc}
-      mv ${crosvmSrc.name} crosvm
-      popd
-
-      pushd chromiumos/third_party
-      unpackFile ${adhdSrc}
-      mv ${adhdSrc.name} adhd
-      popd
-
-      chmod -R u+w -- "$sourceRoot"
-
-      runHook postUnpack
-    '';
-
-    sourceRoot = "chromiumos/platform/crosvm";
+    src = fetchgit (builtins.removeAttrs upstreamInfo.src [ "date" "path" ]);
 
     patches = [
       ./default-seccomp-policy-dir.diff
     ];
 
-    cargoSha256 = "0lhivwvdihslwp81i3sa5q88p5hr83bzkvklrcgf6x73arwk8kdz";
+    cargoLock.lockFile = ./Cargo.lock;
 
-    nativeBuildInputs = [ pkgconfig ];
+    nativeBuildInputs = [ pkg-config wayland-scanner ];
 
-    buildInputs = [ dtc libcap libusb1 minijail ];
+    buildInputs = [ libcap minijail wayland wayland-protocols ];
 
     postPatch = ''
+      cp ${./Cargo.lock} Cargo.lock
       sed -i "s|/usr/share/policy/crosvm/|$out/share/policy/|g" \
              seccomp/*/*.policy
     '';
@@ -75,13 +47,9 @@ in
 
     CROSVM_CARGO_TEST_KERNEL_BINARY =
       lib.optionalString (stdenv.buildPlatform == stdenv.hostPlatform)
-        "${linux}/${stdenv.hostPlatform.platform.kernelTarget}";
+        "${linux}/${stdenv.hostPlatform.linux-kernel.target}";
 
-    passthru = {
-      inherit adhdSrc;
-      src = crosvmSrc;
-      updateScript = ./update.py;
-    };
+    passthru.updateScript = ./update.py;
 
     meta = with lib; {
       description = "A secure virtual machine monitor for KVM";

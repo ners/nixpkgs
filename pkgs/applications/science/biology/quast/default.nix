@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, python3Packages, zlib, bash, coreutils }:
+{ lib, stdenv, fetchurl, python3Packages, zlib, bash }:
 
 let
   pythonPackages = python3Packages;
@@ -15,8 +15,6 @@ pythonPackages.buildPythonApplication rec {
   };
 
   pythonPath = with pythonPackages; [ simplejson joblib setuptools matplotlib ];
-
-  nativeBuildInputs = [ coreutils ];
 
   buildInputs = [ zlib ] ++ pythonPath;
 
@@ -48,7 +46,7 @@ pythonPackages.buildPythonApplication rec {
   # Tests need to download data files, so manual run after packaging is needed
   doCheck = false;
 
-  meta = with stdenv.lib ; {
+  meta = with lib ; {
     description = "Evaluates genome assemblies by computing various metrics";
     homepage = "https://github.com/ablab/quast";
     license = licenses.gpl2;

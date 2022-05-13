@@ -1,22 +1,28 @@
-{ stdenv, go, buildGoModule, fetchgit }:
+{ lib, buildGoModule, fetchFromGitHub }:
 
 buildGoModule rec {
   pname = "gopls";
-  version = "0.4.1";
+  version = "0.8.3";
 
-  src = fetchgit {
+  src = fetchFromGitHub {
+    owner = "golang";
+    repo = "tools";
     rev = "gopls/v${version}";
-    url = "https://go.googlesource.com/tools";
-    sha256 = "18migk7arxm8ysfzidl7mdr069fxym9bfi6zisj7dliczw0qnkzv";
+    sha256 = "sha256-X5U06TEkf1vfCyV95wkg2qVd7I+8S8UPBgwacG0q85U=";
   };
 
   modRoot = "gopls";
-  vendorSha256 = "1jaav6c5vybgks5hc164is0i7h097c5l75s7w3wi5a3zyzkbiyny";
+  vendorSha256 = "sha256-p6biMwicaG5peIu6dp+Pzun8TeNWmgW2QpLIZWqnalg=";
 
-  meta = with stdenv.lib; {
+  doCheck = false;
+
+  # Only build gopls, and not the integration tests or documentation generator.
+  subPackages = [ "." ];
+
+  meta = with lib; {
     description = "Official language server for the Go language";
     homepage = "https://github.com/golang/tools/tree/master/gopls";
     license = licenses.bsd3;
-    maintainers = with maintainers; [ mic92 ];
+    maintainers = with maintainers; [ mic92 SuperSandro2000 zimbatm ];
   };
 }

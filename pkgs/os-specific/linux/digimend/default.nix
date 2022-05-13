@@ -1,6 +1,4 @@
-{ stdenv, fetchFromGitHub, fetchpatch, kernel }:
-
-assert stdenv.lib.versionAtLeast kernel.version "3.5";
+{ lib, stdenv, fetchFromGitHub, fetchpatch, kernel }:
 
 stdenv.mkDerivation rec {
   pname = "digimend";
@@ -12,8 +10,6 @@ stdenv.mkDerivation rec {
     rev = "8b228a755e44106c11f9baaadb30ce668eede5d4";
     sha256 = "1l54j85540386a8aypqka7p5hy1b63cwmpsscv9rmmf10f78v8mm";
   };
-
-  INSTALL_MOD_PATH = "\${out}";
 
   postPatch = ''
     sed 's/udevadm /true /' -i Makefile
@@ -38,13 +34,14 @@ stdenv.mkDerivation rec {
     rm -r $out/lib/udev
   '';
 
-  makeFlags = [
+  makeFlags = kernel.makeFlags ++ [
     "KVERSION=${kernel.modDirVersion}"
     "KDIR=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
     "DESTDIR=${placeholder "out"}"
+    "INSTALL_MOD_PATH=${placeholder "out"}"
   ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "DIGImend graphics tablet drivers for the Linux kernel";
     homepage = "https://digimend.github.io/";
     license = licenses.gpl2;

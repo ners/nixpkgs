@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, python2Packages, hexio
+{ lib, stdenv, fetchFromGitHub, python3Packages, hexio
 , cmake, bash, arpa2cm, git, asn2quickder }:
 
 stdenv.mkDerivation rec {
@@ -14,7 +14,7 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ cmake ];
 
-  buildInputs = with python2Packages; [
+  buildInputs = with python3Packages; [
     arpa2cm
     asn1ate
     hexio
@@ -42,7 +42,7 @@ stdenv.mkDerivation rec {
     export PREFIX=$out
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Quick (and Easy) DER, a Library for parsing ASN.1";
     homepage = "https://github.com/vanrein/quick-der";
     license = licenses.bsd2;
