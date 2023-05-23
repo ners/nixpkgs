@@ -452,7 +452,7 @@ stdenv.mkDerivation ({
   # Hydra which already warrants a significant speedup
   requiredSystemFeatures = [ "big-parallel" ];
 
-  outputs = [ "out" "doc" ];
+  outputs = [ "out" "lib" "doc" ];
 
   # We need to configure the bindist *again* before installing
   # https://gitlab.haskell.org/ghc/ghc/-/issues/22058
@@ -470,6 +470,14 @@ stdenv.mkDerivation ({
 
     # Install the bash completion file.
     install -Dm 644 utils/completion/ghc.bash $out/share/bash-completion/completions/${targetPrefix}ghc
+
+    # Install shared objects into lib
+    pushd $out
+    find lib -type f -name "*.so" | while read f; do
+      echo "Installing $f -> $lib/$f"
+      install -Dm 755 "$f" "$lib/$f"
+    done
+    popd
   '';
 
   passthru = {
