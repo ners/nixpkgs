@@ -34457,6 +34457,7 @@ with pkgs;
   tanka = callPackage ../applications/networking/cluster/tanka { };
 
   teams = callPackage ../applications/networking/instant-messengers/teams { };
+  teams-pwa = callPackage ../applications/networking/instant-messengers/teams-pwa { };
 
   teams-for-linux = callPackage ../applications/networking/instant-messengers/teams-for-linux { };
 

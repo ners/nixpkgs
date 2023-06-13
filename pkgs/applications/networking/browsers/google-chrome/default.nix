@@ -79,7 +79,7 @@ let
 in stdenv.mkDerivation {
   inherit version;
 
-  name = "google-chrome${suffix}-${version}";
+  pname = "google-chrome${suffix}";
 
   src = chromium.chromeSrc;
 
