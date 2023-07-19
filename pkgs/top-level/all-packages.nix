@@ -949,6 +949,8 @@ with pkgs;
 
   mermaid-filter = callPackage ../tools/misc/mermaid-filter { };
 
+  dl-librescore = callPackage ../tools/misc/dl-librescore { };
+
   graphw00f = callPackage ../tools/security/graphw00f { };
 
   graphite-cursors = callPackage ../data/icons/graphite-cursors { };
