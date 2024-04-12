@@ -771,6 +771,8 @@ mapAliases ({
 
   ### M ###
 
+  maple-mono = lib.warn "Use fonts.maple.Mono instead" fonts.maple.Mono;
+
   MACS2 = macs2; # Added 2023-06-12
   mariadb_104 = throw "mariadb_104 has been removed from nixpkgs, please switch to another version like mariadb_106"; # Added 2023-09-11
   mariadb_1010 = throw "mariadb_1010 has been removed from nixpkgs, please switch to another version like mariadb_1011"; # Added 2023-11-14
