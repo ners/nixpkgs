@@ -1,38 +1,41 @@
 {
-  # gcc 11.2 suggested on 3.10.5.2.
-  # gcc 11.3.0 unsupported yet, investigate gcc support when upgrading
-  # See https://github.com/arangodb/arangodb/issues/17454
-  gcc10Stdenv,
-  git,
-  lib,
-  fetchFromGitHub,
-  openssl,
-  zlib,
+  asmOptimizations ? clangStdenv.hostPlatform.isx86,
+  clangStdenv,
   cmake,
-  python3,
-  perl,
-  snappy,
+  blas,
+  fetchFromGitHub,
+  git,
+  lapack,
+  lib,
+  llvmPackages,
   lzo,
-  which,
+  openssl,
+  perl,
+  pkg-config,
+  python3,
+  snappy,
+  yarn,
+  withMkl ? false, mkl,
   targetArchitecture ? null,
-  asmOptimizations ? gcc10Stdenv.hostPlatform.isx86,
+  which,
+  zlib,
 }:
 
 let
-  defaultTargetArchitecture = if gcc10Stdenv.hostPlatform.isx86 then "haswell" else "core";
+  defaultTargetArchitecture = if clangStdenv.hostPlatform.isx86 then "haswell" else "core";
 
   targetArch = if targetArchitecture == null then defaultTargetArchitecture else targetArchitecture;
 in
 
-gcc10Stdenv.mkDerivation rec {
+clangStdenv.mkDerivation rec {
   pname = "arangodb";
-  version = "3.10.5.2";
+  version = "3.12.4";
 
   src = fetchFromGitHub {
     repo = "arangodb";
     owner = "arangodb";
     rev = "v${version}";
-    hash = "sha256-64iTxhG8qKTSrTlH/BWDJNnLf8VnaCteCKfQ9D2lGDQ=";
+    hash = "sha256-yVZzwPnbsKO48K0lVfSh0QNPcuml0MDWGWuJyfY2BWo=";
     fetchSubmodules = true;
   };
 
@@ -40,46 +43,54 @@ gcc10Stdenv.mkDerivation rec {
     cmake
     git
     perl
+    pkg-config
     python3
     which
+    yarn
   ];
 
   buildInputs = [
-    openssl
-    zlib
-    snappy
+    blas
+    lapack
+    llvmPackages.openmp
     lzo
-  ];
-
-  # prevent failing with "cmake-3.13.4/nix-support/setup-hook: line 10: ./3rdParty/rocksdb/RocksDBConfig.cmake.in: No such file or directory"
-  dontFixCmake = true;
-  env.NIX_CFLAGS_COMPILE = "-Wno-error";
+    openssl
+    snappy
+    zlib
+  ] ++ lib.optional withMkl mkl;
 
   postPatch = ''
-    sed -i -e 's!/bin/echo!echo!' 3rdParty/V8/gypfiles/*.gypi
+    #sed -i -e 's!/bin/echo!echo!' 3rdParty/V8/gypfiles/*.gypi
 
     # with nixpkgs, it has no sense to check for a version update
-    substituteInPlace js/client/client.js --replace "require('@arangodb').checkAvailableVersions();" ""
-    substituteInPlace js/server/server.js --replace "require('@arangodb').checkAvailableVersions();" ""
+    substituteInPlace js/client/client.js --replace-fail "require('@arangodb').checkAvailableVersions();" ""
+    substituteInPlace js/server/server.js --replace-fail "require('@arangodb').checkAvailableVersions();" ""
+
+    substituteInPlace cmake/frontend/aardvark.cmake --replace-fail "COMMAND yarn " "COMMAND yarn --offline "
   '';
 
   preConfigure = ''
     patchShebangs utils
   '';
 
-  cmakeBuildType = "RelWithDebInfo";
+  enableParallelBuilding = false;
 
   cmakeFlags =
     [
       "-DUSE_MAINTAINER_MODE=OFF"
       "-DUSE_GOOGLE_TESTS=OFF"
+      "-DBLAS_LIBRARIES=-lblas"
+      "-DLAPACK_LIBRARIES=-llapack"
 
       # avoid reading /proc/cpuinfo for feature detection
       "-DTARGET_ARCHITECTURE=${targetArch}"
     ]
+    ++ lib.optionals withMkl [
+      "-DMKL_LIBRARIES=-lmkl"
+    ]
     ++ lib.optionals asmOptimizations [
       "-DASM_OPTIMIZATIONS=ON"
-      "-DHAVE_SSE42=${if gcc10Stdenv.hostPlatform.sse4_2Support then "ON" else "OFF"}"
+      "-DFORCE_SSE42=${if clangStdenv.hostPlatform.sse4_2Support then "ON" else "OFF"}"
     ];
 
   meta = with lib; {
@@ -90,6 +101,7 @@ gcc10Stdenv.mkDerivation rec {
     maintainers = with maintainers; [
       flosse
       jsoo1
+      ners
     ];
   };
 }
