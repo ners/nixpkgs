@@ -1,95 +1,145 @@
 {
-  # gcc 11.2 suggested on 3.10.5.2.
-  # gcc 11.3.0 unsupported yet, investigate gcc support when upgrading
-  # See https://github.com/arangodb/arangodb/issues/17454
-  gcc10Stdenv,
-  git,
+  # Does not build with GCC anymore: https://github.com/arangodb/arangodb/issues/20586
+  clangStdenv,
   lib,
   fetchFromGitHub,
-  openssl,
-  zlib,
+  pkg-config,
+  abseil-cpp,
+  blas,
+  boost178,
   cmake,
-  python3,
+  faiss,
+  gtest,
+  icu,
+  lapack,
+  llhttp,
+  llvmPackages,
+  lz4,
+  nghttp2,
+  openssl,
   perl,
-  snappy,
-  lzo,
+  python3,
+  rocksdb,
+  velocypack,
+  git,
   which,
+  zlib,
   targetArchitecture ? null,
-  asmOptimizations ? gcc10Stdenv.hostPlatform.isx86,
+  asmOptimizations ? clangStdenv.hostPlatform.isx86,
 }:
 
 let
-  defaultTargetArchitecture = if gcc10Stdenv.hostPlatform.isx86 then "haswell" else "core";
+  defaultTargetArchitecture = if clangStdenv.hostPlatform.isx86 then "haswell" else "core";
 
   targetArch = if targetArchitecture == null then defaultTargetArchitecture else targetArchitecture;
-in
 
-gcc10Stdenv.mkDerivation rec {
-  pname = "arangodb";
-  version = "3.10.5.2";
-
+  version = "3.12.4";
   src = fetchFromGitHub {
     repo = "arangodb";
     owner = "arangodb";
     rev = "v${version}";
-    hash = "sha256-64iTxhG8qKTSrTlH/BWDJNnLf8VnaCteCKfQ9D2lGDQ=";
-    fetchSubmodules = true;
+    hash = "sha256-xFawKNtAREESHA2x6F4nZiOiMucfW4+kn94MTtuu05I=";
   };
+
+  fuerte = clangStdenv.mkDerivation {
+    pname = "arangodb-fuerte";
+    inherit version src;
+    nativeBuildInputs = [
+      cmake
+    ];
+    buildInputs = [
+      abseil-cpp
+      boost178
+      llhttp
+      nghttp2
+      openssl
+      velocypack
+    ];
+    preConfigure = ''
+      cd 3rdParty/fuerte
+      cat >> CMakeLists.txt <<EOF
+
+      install(TARGETS fuerte DESTINATION lib)
+      install(
+        DIRECTORY   "include/fuerte"
+        DESTINATION include
+      )
+      include(CPack)
+      EOF
+    '';
+  };
+in
+
+clangStdenv.mkDerivation {
+  pname = "arangodb";
+  inherit version src;
 
   nativeBuildInputs = [
     cmake
     git
     perl
-    python3
+    pkg-config
+    (python3.withPackages (ps: with ps; [ distutils ]))
     which
   ];
 
   buildInputs = [
+    abseil-cpp
+    blas
+    faiss
+    fuerte
+    gtest
+    icu
+    lapack
+    llvmPackages.openmp
+    lz4
     openssl
+    rocksdb
     zlib
-    snappy
-    lzo
   ];
 
-  # prevent failing with "cmake-3.13.4/nix-support/setup-hook: line 10: ./3rdParty/rocksdb/RocksDBConfig.cmake.in: No such file or directory"
-  dontFixCmake = true;
-  env.NIX_CFLAGS_COMPILE = "-Wno-error";
-
   postPatch = ''
-    sed -i -e 's!/bin/echo!echo!' 3rdParty/V8/gypfiles/*.gypi
-
-    # with nixpkgs, it has no sense to check for a version update
-    substituteInPlace js/client/client.js --replace "require('@arangodb').checkAvailableVersions();" ""
-    substituteInPlace js/server/server.js --replace "require('@arangodb').checkAvailableVersions();" ""
-  '';
-
-  preConfigure = ''
+    find . -type f \( -name '*.h' -or -name '*.cpp' \) -exec sed -i 's/_64_64//g' {} \;
     patchShebangs utils
+    substituteInPlace CMakeLists.txt --replace-fail 'add_subdirectory(3rdParty' '# add_subdirectory(3rdParty'
   '';
 
-  cmakeBuildType = "RelWithDebInfo";
+  enableParallelBuilding = true;
+
+  # cmakeBuildType = "RelWithDebInfo";
 
   cmakeFlags =
     [
+      "-DBLAS_LIBRARIES=-lblas"
+      "-DLAPACK_LIBRARIES=-llapack"
+
+      # do not suffix ICU functions with _64_64
+      "-DU_HAVE_LIB_SUFFIX=0"
+      "-DU_LIB_SUFFIX_C_NAME="
+
+      # whether we want to have assertions and other development features
       "-DUSE_MAINTAINER_MODE=OFF"
-      "-DUSE_GOOGLE_TESTS=OFF"
+
+      # skip building the web frontend with cmake, we build it ourselves
+      "-DUSE_FRONTEND=OFF"
 
       # avoid reading /proc/cpuinfo for feature detection
       "-DTARGET_ARCHITECTURE=${targetArch}"
     ]
     ++ lib.optionals asmOptimizations [
       "-DASM_OPTIMIZATIONS=ON"
-      "-DHAVE_SSE42=${if gcc10Stdenv.hostPlatform.sse4_2Support then "ON" else "OFF"}"
+      "-DFORCE_SSE42=${if clangStdenv.hostPlatform.sse4_2Support then "ON" else "OFF"}"
     ];
 
   meta = with lib; {
     homepage = "https://www.arangodb.com";
     description = "Native multi-model database with flexible data models for documents, graphs, and key-values";
     license = licenses.asl20;
-    platforms = [ "x86_64-linux" ];
+    platforms = lib.platforms.all;
     maintainers = with maintainers; [
       flosse
       jsoo1
+      ners
     ];
   };
 }
