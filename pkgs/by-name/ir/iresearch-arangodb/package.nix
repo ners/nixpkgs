@@ -36,6 +36,10 @@ stdenv.mkDerivation {
     "-DLZ4_ROOT=${lz4.dev}"
     "-DLz4_SHARED_LIB=${lz4.lib}/liblz4.so"
     "-DLz4_STATIC_LIB=${lz4.lib}/liblz4.a"
-    "-DICU_ROOT=${icu.dev}"
+    "-DICU_LIBRARY=-licu"
   ];
+
+  patchPhase = ''
+    rm cmake/FindICU.cmake
+  '';
 }
