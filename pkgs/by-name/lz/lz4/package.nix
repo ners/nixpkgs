@@ -35,6 +35,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   cmakeDir = "../build/cmake";
   cmakeBuildDir = "build-dist";
+  cmakeFlags = ["-DBUILD_STATIC_LIBS=ON"];
 
   doCheck = false; # tests take a very long time
   checkTarget = "test";
