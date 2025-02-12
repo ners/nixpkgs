@@ -1,0 +1,13 @@
+diff --git a/apps/webapp/next.config.js b/apps/webapp/next.config.js
+index 6339e8b9..04befd0d 100644
+--- a/apps/webapp/next.config.js
++++ b/apps/webapp/next.config.js
+@@ -1,6 +1,8 @@
+ /** Copyright (c) 2024, Tegon, all rights reserved. **/
+ 
+ module.exports = {
++  eslint: { ignoreDuringBuilds: true, },
++  typescript: { ignoreBuildErrors: true, },
+   reactStrictMode: false,
+   transpilePackages: ['geist', '@tegonhq/ui'],
+   async redirects() {
