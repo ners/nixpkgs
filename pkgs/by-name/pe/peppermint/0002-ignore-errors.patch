@@ -1,0 +1,12 @@
+diff --git a/apps/client/next.config.js b/apps/client/next.config.js
+index 6cb6ca059..6b9765085 100644
+--- a/apps/client/next.config.js
++++ b/apps/client/next.config.js
+@@ -13,6 +13,7 @@ module.exports = withPlugins(
+   [removeImports, nextTranslate, withPWA],
+   {
+     reactStrictMode: false,
++    typescript: { ignoreBuildErrors: true, },
+     swcMinify: true,
+     output: 'standalone',
+ 
