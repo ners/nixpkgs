@@ -103,6 +103,7 @@ in
             false
             "rocm"
             "cuda"
+            "ipex-llm"
           ]
         );
         default = null;
@@ -119,6 +120,7 @@ in
             - may require overriding gpu type with `services.ollama.rocmOverrideGfx`
               if rocm doesn't detect your AMD gpu
           - `"cuda"`: supported by most modern NVIDIA GPUs
+          - `"ipex-llm"`: supported by most modern Intel iGPU, GPU, NPU, and CPU
         '';
       };
       rocmOverrideGfx = lib.mkOption {
@@ -229,7 +231,7 @@ in
           ];
           DevicePolicy = "closed";
           LockPersonality = true;
-          MemoryDenyWriteExecute = true;
+          MemoryDenyWriteExecute = cfg.acceleration != "ipex-llm"; # the ipex-llm implementation relies on relocating shared libraries
           NoNewPrivileges = true;
           PrivateDevices = false; # hides acceleration devices
           PrivateTmp = true;
