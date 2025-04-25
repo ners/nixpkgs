@@ -970,6 +970,7 @@ in
   ollama = runTest ./ollama.nix;
   ollama-cuda = runTestOn [ "x86_64-linux" "aarch64-linux" ] ./ollama-cuda.nix;
   ollama-rocm = runTestOn [ "x86_64-linux" "aarch64-linux" ] ./ollama-rocm.nix;
+  ollama-ipex-llm = runTestOn [ "x86_64-linux" ] ./ollama-ipex-llm.nix;
   ombi = handleTest ./ombi.nix { };
   openarena = handleTest ./openarena.nix { };
   openldap = handleTest ./openldap.nix { };
