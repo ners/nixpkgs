@@ -7,20 +7,17 @@
   htmlunit-driver,
   chromedriver,
   chromeSupport ? true,
+  versionCheckHook,
+  nix-update-script,
 }:
 
-let
-  minorVersion = "3.141";
-  patchVersion = "59";
-
-in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "selenium-server-standalone";
-  version = "${minorVersion}.${patchVersion}";
+  version = "4.34.0";
 
   src = fetchurl {
-    url = "http://selenium-release.storage.googleapis.com/${minorVersion}/selenium-server-standalone-${version}.jar";
-    sha256 = "1jzkx0ahsb27zzzfvjqv660x9fz2pbcddgmhdzdmasxns5vipxxc";
+    url = "https://github.com/SeleniumHQ/selenium/releases/download/selenium-${finalAttrs.version}/selenium-server-${finalAttrs.version}.jar";
+    sha256 = "sha256-xMp7JFOr7CiscFz8YTIbp+1i6Ib7/VTJl7Ez1zxpxQg=";
   };
 
   dontUnpack = true;
@@ -29,13 +26,26 @@ stdenv.mkDerivation rec {
   buildInputs = [ jre ];
 
   installPhase = ''
-    mkdir -p $out/share/lib/${pname}-${version}
-    cp $src $out/share/lib/${pname}-${version}/${pname}-${version}.jar
+    mkdir -p $out/share/lib/${finalAttrs.pname}-${finalAttrs.version}
+    cp $src $out/share/lib/${finalAttrs.pname}-${finalAttrs.version}/${finalAttrs.pname}-${finalAttrs.version}.jar
     makeWrapper ${jre}/bin/java $out/bin/selenium-server \
-      --add-flags "-cp $out/share/lib/${pname}-${version}/${pname}-${version}.jar:${htmlunit-driver}/share/lib/${htmlunit-driver.name}/${htmlunit-driver.name}.jar" \
+    --add-flags "-cp $out/share/lib/${finalAttrs.pname}-${finalAttrs.version}/${finalAttrs.pname}-${finalAttrs.version}.jar:${htmlunit-driver}/share/lib/${htmlunit-driver.name}/${htmlunit-driver.name}.jar" \
       ${lib.optionalString chromeSupport "--add-flags -Dwebdriver.chrome.driver=${chromedriver}/bin/chromedriver"} \
-      --add-flags "org.openqa.grid.selenium.GridLauncherV3"
+      --add-flags "-jar" \
+      --add-flags "$src" \
+      --add-flags "standalone"
   '';
+
+  doInstallCheck = true;
+  nativeInstallCheckInputs = [ versionCheckHook ];
+  versionCheckProgram = "${placeholder "out"}/bin/${finalAttrs.meta.mainProgram}";
+
+  passthru.updateScript = nix-update-script {
+    extraArgs = [
+      "--version-regex"
+      "^selenium-([0-9.]+)$"
+    ];
+  };
 
   meta = with lib; {
     homepage = "http://www.seleniumhq.org/";
@@ -45,8 +55,9 @@ stdenv.mkDerivation rec {
     maintainers = with maintainers; [
       coconnor
       offline
+      ners
     ];
     mainProgram = "selenium-server";
     platforms = platforms.all;
   };
-}
+})
