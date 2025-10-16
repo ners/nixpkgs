@@ -1,0 +1,14 @@
+{
+  "url": "https://github.com/Silverflower67/tree-sitter-fluent",
+  "rev": "17d44414c08e7eca35350cdb346cd23353ba65e0",
+  "date": "2025-01-06T20:59:05-03:00",
+  "path": "/nix/store/c938dh3xdd4ljjns42fhp5w49cr9p98k-tree-sitter-fluent",
+  "sha256": "1ci3mkdws328jmdbpf923xzrdzlrk85zn9vyxfvji6y2fzzijmsg",
+  "hash": "sha256-T1cZ/3fCmyi3634n+wuamf6Wfx8iubtalUgMzdusI7I=",
+  "fetchLFS": false,
+  "fetchSubmodules": false,
+  "deepClone": false,
+  "fetchTags": false,
+  "leaveDotGit": false,
+  "rootDir": ""
+}

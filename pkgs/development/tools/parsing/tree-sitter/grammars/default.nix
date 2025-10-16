@@ -30,6 +30,7 @@
   tree-sitter-factor = lib.importJSON ./tree-sitter-factor.json;
   tree-sitter-fennel = lib.importJSON ./tree-sitter-fennel.json;
   tree-sitter-fish = lib.importJSON ./tree-sitter-fish.json;
+  tree-sitter-fluent = lib.importJSON ./tree-sitter-fluent.json;
   tree-sitter-fortran = lib.importJSON ./tree-sitter-fortran.json;
   tree-sitter-gdscript = lib.importJSON ./tree-sitter-gdscript.json;
   tree-sitter-gemini = lib.importJSON ./tree-sitter-gemini.json;
