@@ -405,9 +405,9 @@ let
     lib.optionals stdenv.cc.isZig [
       "*.*.ghc.*.opts += -fPIC -fexternal-dynamic-refs"
       "*.*.ghc.*.opts += -fPIC -fexternal-dynamic-refs"
-      "*.*.ghc.c.opts += -optc--target=${stdenv.system}-gnu-2.27"
-      "*.*.ghc.link.opts += -optl--target=${stdenv.system}-gnu-2.27"
-      "*.*.cc.c.opts += --target=${stdenv.system}-gnu-2.27"
+      "*.*.ghc.c.opts += -optc--target=${stdenv.system}-gnu.2.27"
+      "*.*.ghc.link.opts += -optl--target=${stdenv.system}-gnu.2.27"
+      "*.*.cc.c.opts += --target=${stdenv.system}-gnu.2.27"
     ]
     # -fexternal-dynamic-refs apparently (because it's not clear from the
     # documentation) makes the GHC RTS able to load static libraries, which may
