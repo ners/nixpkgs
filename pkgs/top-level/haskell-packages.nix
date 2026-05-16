@@ -219,7 +219,7 @@ in
         inherit buildTargetLlvmPackages llvmPackages;
       };
 
-      ghcZigHEAD = callPackage ../development/compilers/ghc/head.nix {
+      ghcZigHEAD = (callPackage ../development/compilers/ghc/head.nix {
         bootPkgs =
           # No suitable bindist packaged yet
           bb.packages.ghc910;
@@ -239,7 +239,13 @@ in
         targetPackages = buildPackages.targetPackages // {
           stdenv = buildPackages.zigStdenv;
         };
-      };
+      }).overrideAttrs (old: {
+        preConfigure = ''
+          echo 'int main(){}' > main.c
+          "${buildPackages.zigStdenv.cc.cc}"/bin/cc -target "${buildPackages.zigStdenv.system}-gnu.2.27" -c -o /dev/null main.c
+          ${old.preConfigure or ""}
+        '';
+      });
 
       # Starting from GHC 9, integer-{simple,gmp} is replaced by ghc-bignum
       # with "native" and "gmp" backends.
