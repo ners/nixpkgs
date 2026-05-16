@@ -227,7 +227,18 @@ in
         inherit (buildPackages.darwin) xattr autoSignDarwinBinariesHook;
         inherit buildTargetLlvmPackages llvmPackages;
         stdenv = buildPackages.zigStdenv;
-        enableNuma = false;
+        pkgsBuildTarget = buildPackages.lib.recursiveUpdate buildPackages.pkgsBuildTarget {
+          targetPackages.stdenv = buildPackages.zigStdenv;
+        };
+        pkgsHostTarget = buildPackages.lib.recursiveUpdate buildPackages.pkgsHostTarget {
+          targetPackages.stdenv = buildPackages.zigStdenv;
+        };
+        buildPackages = buildPackages // {
+          stdenv = buildPackages.zigStdenv;
+        };
+        targetPackages = buildPackages.targetPackages // {
+          stdenv = buildPackages.zigStdenv;
+        };
       };
 
       # Starting from GHC 9, integer-{simple,gmp} is replaced by ghc-bignum
