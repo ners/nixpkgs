@@ -24,6 +24,7 @@ let
     "0.16.0" = {
       llvmPackages = llvmPackages_21;
       hash = "sha256-2sTMhaasyrKoBnyH/hQrNCbi0Vh6HekIrpE4XkyQulQ=";
+      patches = [ ./disable-explicit-dynamic-linker.patch ];
     };
   }
   // zigVersions;
@@ -33,6 +34,7 @@ let
       version,
       hash,
       llvmPackages,
+      ...
     }@args:
     callPackage ./generic.nix args;
 

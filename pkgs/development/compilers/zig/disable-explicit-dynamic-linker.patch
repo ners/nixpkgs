@@ -1,0 +1,191 @@
+commit f2aed975fb52de53bbe4d6bb2c007962a695b957
+Author: Tom Westerhout <westerhout@google.com>
+Date:   Sun May 17 09:47:56 2026 +0000
+
+    disable explicit dynamic linker for sub-compilations
+
+diff --git a/src/Compilation.zig b/src/Compilation.zig
+index 695dd8918f..aa69219d12 100644
+--- a/src/Compilation.zig
++++ b/src/Compilation.zig
+@@ -1427,7 +1427,7 @@ pub const cache_helpers = struct {
+         hh.add(target.ofmt);
+         hh.add(resolved_target.is_native_os);
+         hh.add(resolved_target.is_native_abi);
+-        hh.add(resolved_target.is_explicit_dynamic_linker);
++        // hh.add(resolved_target.is_explicit_dynamic_linker);
+     }
+ 
+     pub fn addOptionalDebugFormat(hh: *Cache.HashHelper, x: ?Config.DebugFormat) void {
+@@ -5842,12 +5842,14 @@ fn updateCObject(comp: *Compilation, c_object: *CObject, c_obj_prog_node: std.Pr
+                     else => std.process.abort(),
+                 }
+             } else {
+-                var child = try std.process.spawn(io, .{
++                var child = std.process.spawn(io, .{
+                     .argv = argv.items,
+                     .stdin = .ignore,
+                     .stdout = .ignore,
+                     .stderr = .pipe,
+-                });
++                }) catch |err| {
++                    return comp.failCObj(c_object, "failed to swawn zig clang {s}: {t}", .{ argv.items[0], err });
++                };
+ 
+                 var stderr_reader = child.stderr.?.readerStreaming(io, &.{});
+                 const stderr = try stderr_reader.interface.allocRemaining(arena, .limited(std.math.maxInt(u32)));
+@@ -7408,10 +7410,15 @@ fn buildOutputFromZig(
+     const strip = comp.compilerRtStrip();
+     const optimize_mode = comp.compilerRtOptMode();
+ 
++    var sub_target = comp.root_mod.resolved_target;
++    switch (output_mode) {
++        .Exe => { },
++        .Obj, .Lib => { sub_target.is_explicit_dynamic_linker = false; },
++    }
+     const config = Config.resolve(.{
+         .output_mode = output_mode,
+         .link_mode = link_mode,
+-        .resolved_target = comp.root_mod.resolved_target,
++        .resolved_target = sub_target,
+         .is_test = false,
+         .have_zcu = true,
+         .emit_bin = true,
+@@ -7434,7 +7441,7 @@ fn buildOutputFromZig(
+         },
+         .fully_qualified_name = "root",
+         .inherited = .{
+-            .resolved_target = comp.root_mod.resolved_target,
++            .resolved_target = sub_target,
+             .strip = strip,
+             .stack_check = false,
+             .stack_protector = 0,
+@@ -7552,9 +7559,14 @@ pub fn build_crt_file(
+         .output_mode = output_mode,
+     });
+ 
++    var sub_target = comp.root_mod.resolved_target;
++    switch (output_mode) {
++        .Exe => { },
++        .Obj, .Lib => { sub_target.is_explicit_dynamic_linker = false; },
++    }
+     const config = Config.resolve(.{
+         .output_mode = output_mode,
+-        .resolved_target = comp.root_mod.resolved_target,
++        .resolved_target = sub_target,
+         .is_test = false,
+         .have_zcu = false,
+         .emit_bin = true,
+@@ -7577,7 +7589,7 @@ pub fn build_crt_file(
+         },
+         .fully_qualified_name = "root",
+         .inherited = .{
+-            .resolved_target = comp.root_mod.resolved_target,
++            .resolved_target = sub_target,
+             .strip = comp.compilerRtStrip(),
+             .stack_check = false,
+             .stack_protector = 0,
+diff --git a/src/libs/glibc.zig b/src/libs/glibc.zig
+index 92a629fa82..b1ad0e4dfd 100644
+--- a/src/libs/glibc.zig
++++ b/src/libs/glibc.zig
+@@ -1188,10 +1188,13 @@ fn buildSharedLib(
+ 
+     const optimize_mode = comp.compilerRtOptMode();
+     const strip = comp.compilerRtStrip();
++
++    var sub_target = comp.root_mod.resolved_target;
++    sub_target.is_explicit_dynamic_linker = false;
+     const config = try Compilation.Config.resolve(.{
+         .output_mode = .Lib,
+         .link_mode = .dynamic,
+-        .resolved_target = comp.root_mod.resolved_target,
++        .resolved_target = sub_target,
+         .is_test = false,
+         .have_zcu = false,
+         .emit_bin = true,
+@@ -1207,7 +1210,7 @@ fn buildSharedLib(
+         },
+         .fully_qualified_name = "root",
+         .inherited = .{
+-            .resolved_target = comp.root_mod.resolved_target,
++            .resolved_target = sub_target,
+             .strip = strip,
+             .stack_check = false,
+             .stack_protector = 0,
+diff --git a/src/libs/libcxx.zig b/src/libs/libcxx.zig
+index 316ac6d815..fa9fc9d44f 100644
+--- a/src/libs/libcxx.zig
++++ b/src/libs/libcxx.zig
+@@ -134,10 +134,12 @@ pub fn buildLibCxx(comp: *Compilation, prog_node: std.Progress.Node) BuildError!
+     const optimize_mode = comp.compilerRtOptMode();
+     const strip = comp.compilerRtStrip();
+ 
++    var sub_target = comp.root_mod.resolved_target;
++    sub_target.is_explicit_dynamic_linker = false;
+     const config = Compilation.Config.resolve(.{
+         .output_mode = output_mode,
+         .link_mode = link_mode,
+-        .resolved_target = comp.root_mod.resolved_target,
++        .resolved_target = sub_target,
+         .is_test = false,
+         .have_zcu = false,
+         .emit_bin = true,
+@@ -162,7 +164,7 @@ pub fn buildLibCxx(comp: *Compilation, prog_node: std.Progress.Node) BuildError!
+         },
+         .fully_qualified_name = "root",
+         .inherited = .{
+-            .resolved_target = comp.root_mod.resolved_target,
++            .resolved_target = sub_target,
+             .strip = strip,
+             .stack_check = false,
+             .stack_protector = 0,
+@@ -330,10 +332,12 @@ pub fn buildLibCxxAbi(comp: *Compilation, prog_node: std.Progress.Node) BuildErr
+     const unwind_tables: std.builtin.UnwindTables =
+         if (target.os.tag == .wasi or (target.cpu.arch == .x86 and target.os.tag == .windows)) .none else .async;
+ 
++    var sub_target = comp.root_mod.resolved_target;
++    sub_target.is_explicit_dynamic_linker = false;
+     const config = Compilation.Config.resolve(.{
+         .output_mode = output_mode,
+         .link_mode = link_mode,
+-        .resolved_target = comp.root_mod.resolved_target,
++        .resolved_target = sub_target,
+         .is_test = false,
+         .have_zcu = false,
+         .emit_bin = true,
+@@ -359,7 +363,7 @@ pub fn buildLibCxxAbi(comp: *Compilation, prog_node: std.Progress.Node) BuildErr
+         },
+         .fully_qualified_name = "root",
+         .inherited = .{
+-            .resolved_target = comp.root_mod.resolved_target,
++            .resolved_target = sub_target,
+             .strip = strip,
+             .stack_check = false,
+             .stack_protector = 0,
+diff --git a/src/libs/libunwind.zig b/src/libs/libunwind.zig
+index c1437d39bd..86136be738 100644
+--- a/src/libs/libunwind.zig
++++ b/src/libs/libunwind.zig
+@@ -31,9 +31,11 @@ pub fn buildStaticLib(comp: *Compilation, prog_node: std.Progress.Node) BuildErr
+     const target = &comp.root_mod.resolved_target.result;
+     const unwind_tables: std.builtin.UnwindTables =
+         if (target.cpu.arch == .x86 and target.os.tag == .windows) .none else .async;
++    var sub_target = comp.root_mod.resolved_target;
++    sub_target.is_explicit_dynamic_linker = false;
+     const config = Compilation.Config.resolve(.{
+         .output_mode = output_mode,
+-        .resolved_target = comp.root_mod.resolved_target,
++        .resolved_target = sub_target,
+         .is_test = false,
+         .have_zcu = false,
+         .emit_bin = true,
+@@ -57,7 +59,7 @@ pub fn buildStaticLib(comp: *Compilation, prog_node: std.Progress.Node) BuildErr
+         },
+         .fully_qualified_name = "root",
+         .inherited = .{
+-            .resolved_target = comp.root_mod.resolved_target,
++            .resolved_target = sub_target,
+             .strip = comp.compilerRtStrip(),
+             .stack_check = false,
+             .stack_protector = 0,

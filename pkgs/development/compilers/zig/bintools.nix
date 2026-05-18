@@ -33,4 +33,7 @@ runCommand "zig-bintools-${zig.version}"
     done
 
     ln -s $out/bin/ld.lld $out/bin/ld
+    for tool in nm; do
+      ln -s ${stdenv.cc.bintools}/bin/$tool $out/bin/$tool
+    done
   ''
